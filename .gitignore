@@ -1,0 +1,63 @@
+# Large Binaries & Archives
+*.apk
+*.aab
+*.zip
+*.tar.gz
+*.rar
+D4D.apk
+
+# Android / Gradle
+.gradle/
+**/.gradle/
+build/
+**/build/
+local.properties
+**/local.properties
+.kotlin/
+**/.kotlin/
+.externalNativeBuild/
+**/.externalNativeBuild/
+.cxx/
+**/.cxx/
+captures/
+**/captures/
+
+# Node / Web
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+.vite/
+**/.vite/
+coverage/
+**/coverage/
+
+# Keystores & Secrets
+*.keystore
+*.jks
+*.key
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# IDE & Editor files
+.idea/
+**/.idea/
+*.iml
+**/*.iml
+.vscode/
+**/.vscode/
+
+# Logs & Backups
+*.log
+**/*.log
+*.bak
+**/*.bak
+
+# OS specific
+.DS_Store
+Thumbs.db
+Desktop.ini

@@ -1,0 +1,124 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Represents an authenticated user (consumer or business user)",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["Super Admin", "Admin", "Moderator", "Data Entry Operator", "Retailer Owner", "Retailer Staff", "Consumer"] },
+        "retailerId": { "type": "string", "description": "If role is Retailer, the associated retailer" },
+        "displayName": { "type": "string" },
+        "createdAt": { "type": "number", "description": "Server timestamp" },
+        "updatedAt": { "type": "number", "description": "Server timestamp" }
+      },
+      "required": ["uid", "email", "role", "createdAt", "updatedAt"]
+    },
+    "Retailer": {
+      "title": "Retailer",
+      "description": "Represents a store or brand",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "suspended", "pending"] },
+        "logoUrl": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["name", "status"]
+    },
+    "Flyer": {
+      "title": "Flyer",
+      "description": "A promotional flyer or circular",
+      "type": "object",
+      "properties": {
+        "retailerId": { "type": "string" },
+        "title": { "type": "string" },
+        "pdfUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["draft", "pending", "approved", "rejected", "published", "expired"] },
+        "validFrom": { "type": "number" },
+        "validUntill": { "type": "number" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["retailerId", "title", "status"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "A specific item inside a flyer or catalogue",
+      "type": "object",
+      "properties": {
+        "retailerId": { "type": "string" },
+        "flyerId": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "brand": { "type": "string" },
+        "price": { "type": "number" },
+        "originalPrice": { "type": "number" },
+        "offerDateStart": { "type": "number" },
+        "offerDateEnd": { "type": "number" },
+        "imageUrl": { "type": "string" },
+        "ocrStatus": { "type": "string", "enum": ["pending", "reviewed", "approved"] },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["retailerId", "name", "price"]
+    },
+    "Promotion": {
+      "title": "Promotion",
+      "description": "A featured promotion or flash sale",
+      "type": "object",
+      "properties": {
+        "retailerId": { "type": "string" },
+        "title": { "type": "string" },
+        "type": { "type": "string", "enum": ["flash_sale", "featured_deal", "regular"] },
+        "status": { "type": "string", "enum": ["active", "expired"] },
+        "validFrom": { "type": "number" },
+        "validUntill": { "type": "number" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["retailerId", "title", "type", "status"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "A system notification or alert",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "body": { "type": "string" },
+        "target": { "type": "string" },
+        "status": { "type": "string", "enum": ["draft", "sent"] },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["title", "body", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Public user profiles and roles"
+    },
+    "/retailers/{retailerId}": {
+      "schema": { "$ref": "#/entities/Retailer" },
+      "description": "Retailer profiles"
+    },
+    "/flyers/{flyerId}": {
+      "schema": { "$ref": "#/entities/Flyer" },
+      "description": "Published and draft flyers"
+    },
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Extracted and mapped products"
+    },
+    "/promotions/{promotionId}": {
+      "schema": { "$ref": "#/entities/Promotion" },
+      "description": "Promotional events"
+    },
+    "/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/Notification" },
+      "description": "System alerts"
+    }
+  }
+}

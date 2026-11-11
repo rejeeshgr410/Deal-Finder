@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Deal Finder Business</string>
+    <string name="title_activity_main">Deal Finder Business</string>
+    <string name="package_name">com.aistudio.dealfinderuae.business</string>
+    <string name="custom_url_scheme">com.aistudio.dealfinderuae.business</string>
+</resources>

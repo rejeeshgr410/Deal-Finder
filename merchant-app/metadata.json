@@ -1,0 +1,6 @@
+{
+  "name": "Deal Finder UAE Business",
+  "description": "Backend management platform and operational control center for the Deal Finder UAE application.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

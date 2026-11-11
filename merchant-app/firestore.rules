@@ -1,0 +1,152 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function getUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+    
+    function getUserRole() {
+      return (isSignedIn() && request.auth.token.email == '***REDACTED_EMAIL***') ? 'super_admin' : (exists(/databases/$(database)/documents/users/$(request.auth.uid)) ? getUserDoc().data.role : 'consumer');
+    }
+    
+    function getUserRetailerId() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) ? getUserDoc().data.retailerId : null;
+    }
+    
+    function isSuperAdmin() {
+      return isSignedIn() && (getUserRole() == 'super_admin');
+    }
+
+    // Admins have access to all admin operations
+    function isAdmin() {
+      let role = getUserRole();
+      return isSignedIn() && (role == 'admin' || role == 'super_admin');
+    }
+
+    // Moderators have user monitoring/retailer approving capabilities
+    function isModerator() {
+      let role = getUserRole();
+      return isSignedIn() && (role == 'moderator' || role == 'admin' || role == 'super_admin');
+    }
+
+    function isDataEntry() {
+      let role = getUserRole();
+      return isSignedIn() && (role == 'data_entry');
+    }
+
+    function isRetailerOwner(retailerId) {
+      let role = getUserRole();
+      return isSignedIn() && role == 'retailer_owner' && getUserRetailerId() == retailerId;
+    }
+
+    function isRetailerStaff(retailerId) {
+      let role = getUserRole();
+      return isSignedIn() && (role == 'retailer_owner' || role == 'retailer_staff') && getUserRetailerId() == retailerId;
+    }
+
+    match /users/{userId} {
+      // Users can read their own profile. Admins and moderators can read all users. Retailer Owners can read their staff.
+      allow read: if request.auth.uid == userId || isModerator() || (
+        isSignedIn() && getUserRole() == 'retailer_owner' && exists(/databases/$(database)/documents/users/$(userId)) && get(/databases/$(database)/documents/users/$(userId)).data.retailerId == getUserRetailerId()
+      );
+      // Auto-provisioning allows self-creation on first login
+      allow create: if request.auth.uid == userId;
+      // Only Admins can modify roles etc; users can modify own basic data but not their role or retailerId
+      allow update: if isAdmin() || (request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'retailerId']));
+      allow delete: if isAdmin();
+    }
+
+    match /retailers/{retailerId} {
+      // Retailers, branches, flyers are public information (readable by consumers and all managers for mapping/dashboards)
+      allow read: if true;
+      
+      // Admins manage retailers
+      allow create, delete: if isAdmin();
+      
+      // Retailers can update their own data, Admins/Moderators can update any
+      allow update: if isModerator() || isRetailerStaff(retailerId);
+    }
+    
+    match /branches/{branchId} {
+      allow read: if true;
+      allow create: if isModerator() || isRetailerStaff(request.resource.data.retailerId);
+      allow update: if isModerator() || (isRetailerStaff(resource.data.retailerId) && request.resource.data.retailerId == resource.data.retailerId);
+      allow delete: if isAdmin() || isRetailerStaff(resource.data.retailerId);
+    }
+
+    match /flyers/{flyerId} {
+      allow read: if true;
+      
+      // Retailer Staff/Moderators/DataEntry can create flyers
+      allow create: if isModerator() || isDataEntry() || isRetailerStaff(request.resource.data.retailerId);
+      
+      // Prevent changing the retailerId on update unless admin/moderator
+      allow update: if 
+        isModerator() || isDataEntry() ||
+        (isRetailerStaff(resource.data.retailerId) && request.resource.data.retailerId == resource.data.retailerId);
+        
+      allow delete: if isAdmin() || isRetailerStaff(resource.data.retailerId);
+    }
+
+    match /products/{productId} {
+      // Consumers and managers can read all products
+      allow read: if true;
+      allow create: if isModerator() || isDataEntry() || isRetailerStaff(request.resource.data.retailerId);
+      allow update: if isModerator() || isDataEntry() || (isRetailerStaff(resource.data.retailerId) && request.resource.data.retailerId == resource.data.retailerId);
+      allow delete: if isAdmin() || isRetailerStaff(resource.data.retailerId);
+    }
+
+    match /promotions/{promotionId} {
+      allow read: if true;
+      allow create: if isModerator() || isDataEntry() || isRetailerStaff(request.resource.data.retailerId);
+      allow update: if isModerator() || (isRetailerStaff(resource.data.retailerId) && request.resource.data.retailerId == resource.data.retailerId);
+      allow delete: if isAdmin() || isRetailerStaff(resource.data.retailerId);
+    }
+
+    match /coupons/{couponId} {
+      allow read: if true;
+      allow create: if isModerator() || isDataEntry() || isRetailerStaff(request.resource.data.retailerId);
+      allow update: if isModerator() || (isRetailerStaff(resource.data.retailerId) && request.resource.data.retailerId == resource.data.retailerId);
+      allow delete: if isAdmin() || isRetailerStaff(resource.data.retailerId);
+    }
+
+    match /masterProducts/{masterId} {
+      allow read: if true;
+      allow create, update, delete: if isModerator() || isDataEntry();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if true;
+    }
+
+    match /fcmTokens/{tokenId} {
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if isAdmin();
+    }
+
+    match /notificationDeliveries/{deliveryId} {
+      allow read, create, update: if true;
+      allow delete: if isAdmin();
+    }
+
+    match /analytics/{docId} {
+      allow read: if true;
+      allow create: if true; // Track events
+      allow update, delete: if isAdmin();
+    }
+
+    match /auditLogs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if false;
+    }
+  }
+}

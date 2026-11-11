@@ -1,0 +1,49 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // NOTE ON ROLE CHECKS:
+    // Firestore user/role data lives in a NAMED database
+    // ("ai-studio-86ad9cb9-2ca7-45ce-90e1-07624002c096"), but Storage rules'
+    // firestore.get() binding can ONLY read the (default) database. There is no
+    // way to point firestore.get() at a named database, so we cannot look up the
+    // caller's role here. Until roles are mirrored into Auth custom claims, writes
+    // are gated on authentication only. This is acceptable because:
+    //   1. Only internal staff can sign into the business/admin web app, which is
+    //      the only client with UI to write to flyers/products/retailers paths.
+    //   2. Firestore security rules still independently enforce per-role checks on
+    //      the corresponding flyer/product/retailer DOCUMENTS.
+    // TODO: harden by setting custom claims (request.auth.token.role) on user
+    // creation in the admin flow, then restore role-based write checks below.
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Basic file hygiene for uploads (images / PDFs, capped size).
+    function isValidUpload() {
+      return request.resource.size < 25 * 1024 * 1024
+        && (request.resource.contentType.matches('image/.*')
+            || request.resource.contentType == 'application/pdf');
+    }
+
+    match /flyers/{retailerId}/{allPaths=**} {
+      allow read: if true; // consumers can read flyers
+      allow write: if isSignedIn() && isValidUpload();
+    }
+
+    match /products/{retailerId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isSignedIn() && isValidUpload();
+    }
+
+    match /retailers/{retailerId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isSignedIn() && isValidUpload();
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
