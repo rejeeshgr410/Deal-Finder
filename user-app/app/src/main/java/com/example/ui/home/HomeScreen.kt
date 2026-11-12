@@ -17,6 +17,7 @@ import androidx.compose.material.icons.outlined.ConfirmationNumber
 import androidx.compose.material.icons.outlined.LocalOffer
 import androidx.compose.material.icons.outlined.CompareArrows
 import androidx.compose.material.icons.outlined.ShoppingBasket
+import androidx.compose.material.icons.outlined.Payment
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -51,7 +52,8 @@ fun HomeScreen(
     onNavigateToNotifications: () -> Unit,
     onNavigateToFlyer: (String) -> Unit,
     onNavigateToProduct: (String) -> Unit,
-    onAddToList: (com.example.data.ProductEntity) -> Unit
+    onAddToList: (com.example.data.ProductEntity) -> Unit,
+    onNavigateToLoyaltyCards: () -> Unit = {}
 ) {
     val flyers by viewModel.flyers.collectAsState()
     val products by viewModel.products.collectAsState()
@@ -124,7 +126,8 @@ fun HomeScreen(
                     onNavigateToCompare = onNavigateToCompare,
                     onNavigateToFlyers = onNavigateToFlyers,
                     onNavigateToList = onNavigateToList,
-                    onNavigateToCoupons = onNavigateToCoupons
+                    onNavigateToCoupons = onNavigateToCoupons,
+                    onNavigateToLoyaltyCards = onNavigateToLoyaltyCards
                 ) 
             }
             
@@ -324,9 +327,11 @@ fun QuickActions(
     onNavigateToCompare: () -> Unit,
     onNavigateToFlyers: () -> Unit,
     onNavigateToList: () -> Unit,
-    onNavigateToCoupons: () -> Unit
+    onNavigateToCoupons: () -> Unit,
+    onNavigateToLoyaltyCards: () -> Unit = {}
 ) {
     val items = listOf(
+        QuickAction("Loyalty Cards", Icons.Outlined.Payment, Color(0xFFE3F2FD), Color(0xFF004F9F), onNavigateToLoyaltyCards),
         QuickAction("Nearby Deals", Icons.Outlined.LocationOn, CatGreen, CatGreenIcon, onNavigateToFlyers),
         QuickAction("All Flyers", Icons.Outlined.LocalOffer, CatRed, CatRedIcon, onNavigateToFlyers),
         QuickAction("Price Compare", Icons.Outlined.CompareArrows, CatPurple, CatPurpleIcon, onNavigateToCompare),

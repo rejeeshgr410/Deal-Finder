@@ -1,0 +1,65 @@
+<resources>
+    <string name="app_name">ديل فايندر الإمارات</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">الرئيسية</string>
+    <string name="nav_search">البحث والمقارنة</string>
+    <string name="nav_lists">قوائم التسوق</string>
+    <string name="nav_deals">العروض والكتالوجات</string>
+    <string name="nav_account">حسابي</string>
+    <string name="nav_loyalty">بطاقات الولاء</string>
+
+    <!-- Home Screen -->
+    <string name="featured_flyers">أحدث كتالوجات وعروض الإمارات</string>
+    <string name="view_all">عرض الكل</string>
+    <string name="categories">الأقسام والتصنيفات</string>
+    <string name="nearby_stores">المتاجر القريبة</string>
+    <string name="trending_deals">العروض الأكثر رواجاً</string>
+    <string name="save_up_to">وفّر حتى</string>
+    <string name="search_placeholder">ابحث عن المنتجات، الأجهزة، الكتالوجات…</string>
+
+    <!-- Loyalty Wallet -->
+    <string name="loyalty_wallet_title">محفظة بطاقات الولاء</string>
+    <string name="loyalty_wallet_subtitle">الباركود الرقمي لعضوية المتاجر عند الكاشير</string>
+    <string name="add_loyalty_card">إضافة بطاقة ولاء</string>
+    <string name="tap_to_scan">اضغط على البطاقة لمسح الباركود</string>
+    <string name="empty_wallet_title">محفظتك فارغة حالياً</string>
+    <string name="empty_wallet_desc">أضف بطاقة كارفور ماي كلوب، لولو هابينس، أو نستو إنعام لجمع النقاط دون الحاجة لحمل البطاقات البلاستيكية.</string>
+
+    <!-- Basket Optimizer & Multi-Store Comparison -->
+    <string name="basket_optimizer_title">مقارنة وتوفير سلة التسوق</string>
+    <string name="basket_optimizer_subtitle">قارن قائمة مقاضيك بين مختلف الهايبرماركت في الإمارات</string>
+    <string name="cheapest_single_store">المتجر الأوفر كوجهة واحدة</string>
+    <string name="split_store_savings">توفير الشراء الموزع بين متجرين</string>
+    <string name="total_basket_cost">إجمالي تكلفة السلة</string>
+    <string name="savings_calculated">مجموع التوفير</string>
+    <string name="optimize_now">احسب أفضل توفير</string>
+    <string name="missing_items">أصناف غير متوفرة</string>
+    <string name="all_items_available">جميع الأصناف متوفرة</string>
+    <string name="currency_aed">درهم</string>
+
+    <!-- Shopping List -->
+    <string name="my_lists">قوائمي</string>
+    <string name="new_list">قائمة جديدة</string>
+    <string name="share_list">مشاركة القائمة</string>
+    <string name="budget_limit">حد الميزانية الشهرية</string>
+    <string name="empty_list">قائمة التسوق فارغة</string>
+
+    <!-- Settings & Profile -->
+    <string name="settings">الإعدادات</string>
+    <string name="language">اللغة / Language</string>
+    <string name="english">English</string>
+    <string name="arabic">العربية</string>
+    <string name="theme">المظهر</string>
+    <string name="notifications">التنبيهات والإشعارات</string>
+    <string name="location">الموقع والإمارة</string>
+    <string name="backup_restore">النسخ الاحتياطي واستعادة البيانات</string>
+    <string name="logout">تسجيل الخروج</string>
+
+    <!-- General -->
+    <string name="save">حفظ</string>
+    <string name="cancel">إلغاء</string>
+    <string name="delete">حذف</string>
+    <string name="done">تم</string>
+    <string name="copied">تم النسخ إلى الحافظة</string>
+</resources>

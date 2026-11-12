@@ -28,15 +28,17 @@ class MainActivity : ComponentActivity() {
     val roomDb = androidx.room.Room.databaseBuilder(
         applicationContext,
         com.example.data.DealFinderRoomDatabase::class.java, "dealfinder-room-db"
-    ).build()
+    ).fallbackToDestructiveMigration().build()
     
     val sessionManager = com.example.data.SessionManager(applicationContext)
     val shoppingRepo = ShoppingListRepository(roomDb.shoppingListDao(), db, sessionManager)
     val dealFinderDao = FirestoreDealFinderDao(db, sessionManager)
     val dealFinderRepo = com.example.data.DealFinderRepository(dealFinderDao, roomDb.cachedFlyerDao())
+    val loyaltyCardDao = roomDb.loyaltyCardDao()
     val locationManager = com.example.data.LocationManager(applicationContext)
     val authRepo = com.example.data.AuthRepository(dealFinderDao, sessionManager)
     val themeManager = com.example.data.ThemeManager(applicationContext)
+    val localeManager = com.example.data.LocaleManager(applicationContext)
     
     val initialRoute = intent?.getStringExtra("route") ?: com.example.ui.Screen.Home.route
 
@@ -48,11 +50,24 @@ class MainActivity : ComponentActivity() {
           com.example.data.ThemeMode.AUTO -> androidx.compose.foundation.isSystemInDarkTheme()
       }
 
+      val currentLanguage by localeManager.currentLanguage.collectAsState()
+      val layoutDirection = if (currentLanguage == "ar") androidx.compose.ui.unit.LayoutDirection.Rtl else androidx.compose.ui.unit.LayoutDirection.Ltr
+
       androidx.compose.runtime.CompositionLocalProvider(
-          com.example.ui.theme.LocalThemeManager provides themeManager
+          com.example.ui.theme.LocalThemeManager provides themeManager,
+          com.example.data.LocalLocaleManager provides localeManager,
+          androidx.compose.ui.platform.LocalLayoutDirection provides layoutDirection
       ) {
           MyApplicationTheme(darkTheme = darkTheme) {
-            DealFinderApp(shoppingRepo, dealFinderRepo, authRepo, locationManager, initialRoute)
+            DealFinderApp(
+                shoppingRepo = shoppingRepo,
+                dealFinderRepo = dealFinderRepo,
+                authRepo = authRepo,
+                locationManager = locationManager,
+                loyaltyCardDao = loyaltyCardDao,
+                localeManager = localeManager,
+                initialRoute = initialRoute
+            )
           }
       }
     }

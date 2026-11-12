@@ -59,10 +59,26 @@ interface CachedFlyerDao {
     suspend fun insertFlyers(flyers: List<CachedFlyerEntity>)
 }
 
-@Database(entities = [ShoppingListItem::class, CachedFlyerEntity::class], version = 2, exportSchema = false)
+@Dao
+interface LoyaltyCardDao {
+    @Query("SELECT * FROM loyalty_cards ORDER BY createdAt DESC")
+    fun getAllCards(): Flow<List<LoyaltyCardEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCard(card: LoyaltyCardEntity)
+
+    @Update
+    suspend fun updateCard(card: LoyaltyCardEntity)
+
+    @Query("DELETE FROM loyalty_cards WHERE id = :id")
+    suspend fun deleteCardById(id: String)
+}
+
+@Database(entities = [ShoppingListItem::class, CachedFlyerEntity::class, LoyaltyCardEntity::class], version = 3, exportSchema = false)
 abstract class DealFinderRoomDatabase : RoomDatabase() {
     abstract fun shoppingListDao(): ShoppingListDao
     abstract fun cachedFlyerDao(): CachedFlyerDao
+    abstract fun loyaltyCardDao(): LoyaltyCardDao
 }
 
 interface DealFinderDao {

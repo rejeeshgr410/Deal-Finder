@@ -201,3 +201,16 @@ data class NotificationEntity(
     val isRead: Boolean = false
 )
 
+@androidx.room.Entity(tableName = "loyalty_cards")
+data class LoyaltyCardEntity(
+    @androidx.room.PrimaryKey
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val storeName: String = "",
+    val cardNumber: String = "",
+    val barcodeFormat: String = "CODE_128", // CODE_128, EAN_13, QR_CODE
+    val colorHex: Long = 0xFF004F9F,
+    val note: String = "",
+    val createdAt: Long = System.currentTimeMillis()
+)
+
+

@@ -37,10 +37,13 @@ import com.example.ui.theme.*
 fun CompareScreen(
     viewModel: com.example.ui.DealFinderViewModel, 
     onAddToList: (com.example.data.ProductEntity) -> Unit, 
+    listViewModel: com.example.ui.lists.ListViewModel? = null,
     onNavigateToProduct: (String) -> Unit = {},
     onNavigateToRetailer: (String) -> Unit = {},
-    onNavigateToFlyer: (String) -> Unit = {}
+    onNavigateToFlyer: (String) -> Unit = {},
+    onNavigateToList: () -> Unit = {}
 ) {
+    var selectedTab by remember { mutableStateOf(0) }
     var searchQuery by remember { mutableStateOf("") }
     var sortBy by remember { mutableStateOf("Relevance") }
     var sortExpanded by remember { mutableStateOf(false) }
@@ -62,6 +65,9 @@ fun CompareScreen(
     val recentSearches by viewModel.recentSearches.collectAsState()
     val trendingSearches by viewModel.trendingSearches.collectAsState()
     val userLocation = viewModel.selectedEmirate.collectAsState()
+    val shoppingItems = listViewModel?.uiState?.collectAsState()?.value ?: emptyList()
+    val allProducts by viewModel.products.collectAsState()
+    val allStores by viewModel.stores.collectAsState()
     
     val filteredProducts = products.filter { product ->
         val matchesCategory = selectedCategory == null || product.category.equals(selectedCategory, true)
@@ -134,8 +140,115 @@ fun CompareScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item { SearchHeader(userLocation.value) }
+
             item {
-                Surface(
+                TabRow(
+                    selectedTabIndex = selectedTab,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    modifier = Modifier.padding(horizontal = 16.dp).clip(RoundedCornerShape(16.dp))
+                ) {
+                    Tab(
+                        selected = selectedTab == 0,
+                        onClick = { selectedTab = 0 },
+                        text = { Text("Product Search", fontWeight = FontWeight.SemiBold) },
+                        icon = { Icon(Icons.Outlined.Search, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                    )
+                    Tab(
+                        selected = selectedTab == 1,
+                        onClick = { selectedTab = 1 },
+                        text = { Text("Basket Optimizer", fontWeight = FontWeight.SemiBold) },
+                        icon = { Icon(Icons.Outlined.ShoppingBag, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                    )
+                }
+            }
+
+            if (selectedTab == 1) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)),
+                        shape = RoundedCornerShape(20.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(44.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.TrendingDown,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.padding(10.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column {
+                                Text(
+                                    "UAE Multi-Store Price Engine",
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Text(
+                                    "Automatically calculates the cheapest hypermarket (Lulu, Carrefour, Nesto & Viva) for your entire cart.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (shoppingItems.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    Icons.Outlined.ShoppingBasket,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(64.dp),
+                                    tint = MaterialTheme.colorScheme.outline
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    "Your Shopping Basket is Empty",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    "Add groceries or deals to your list, and this engine will calculate the cheapest supermarket and optimal split strategy.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(20.dp))
+                                Button(onClick = onNavigateToList) {
+                                    Text("Open My Shopping List")
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    item {
+                        com.example.ui.lists.BasketOptimizationEngine(
+                            items = shoppingItems,
+                            products = allProducts,
+                            stores = allStores,
+                            getNearestBranchAndDistance = { viewModel.getNearestBranchAndDistance(it) }
+                        )
+                    }
+                }
+            } else {
+                item {
+                    Surface(
                     shape = RoundedCornerShape(32.dp),
                     color = MaterialTheme.colorScheme.surface,
                     modifier = Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 16.dp),
@@ -324,6 +437,7 @@ fun CompareScreen(
                     onClick = { onNavigateToProduct(product.id) },
                     onStoreClick = { product.retailerId?.let { onNavigateToRetailer(it) } }
                 )
+            }
             }
             
             // item { MissingItemBanner() }

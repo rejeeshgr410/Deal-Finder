@@ -41,7 +41,8 @@ fun AccountScreen(
     listViewModel: com.example.ui.lists.ListViewModel,
     authViewModel: com.example.ui.auth.AuthViewModel,
     onLogout: () -> Unit,
-    onNavigateToNotificationSettings: () -> Unit
+    onNavigateToNotificationSettings: () -> Unit,
+    onNavigateToLoyaltyCards: () -> Unit = {}
 ) {
     val currentUser by authViewModel.currentUser.collectAsState()
     
@@ -61,6 +62,11 @@ fun AccountScreen(
                 } 
             }
             
+            item {
+                SectionHeader(title = "My Tools & Wallet", action = "", onAction = {})
+                MyToolsGrid(onNavigateToLoyaltyCards = onNavigateToLoyaltyCards)
+            }
+
             item {
                 SectionHeader(title = "App Settings", action = "", onAction = {})
                 AppSettingsList(onLogout, onNavigateToNotificationSettings)
@@ -209,19 +215,19 @@ fun StatItem(icon: ImageVector, count: String, label: String, iconColor: Color, 
     }
 }
 
-data class ToolItem(val name: String, val desc: String, val icon: ImageVector, val iconColor: Color, val bgColor: Color)
+data class ToolItem(val name: String, val desc: String, val icon: ImageVector, val iconColor: Color, val bgColor: Color, val onClick: () -> Unit = {})
 
 @Composable
-fun MyToolsGrid() {
+fun MyToolsGrid(onNavigateToLoyaltyCards: () -> Unit = {}) {
     val tools = listOf(
+        ToolItem("Loyalty Cards", "Digital barcode membership cards", Icons.Outlined.CreditCard, Color(0xFF004F9F), Color(0xFFE3F2FD), onClick = onNavigateToLoyaltyCards),
         ToolItem("Smart Lists", "Create & manage smart lists", Icons.Outlined.ShoppingBasket, CatGreenIcon, CatGreen),
         ToolItem("Budget Planner", "Track spending & savings", Icons.Outlined.AccountBalanceWallet, Color(0xFF5C6BC0), Color(0xFFE8EAF6)),
         ToolItem("Price History", "Track price trends of products", Icons.Outlined.ShowChart, CatYellowIcon, CatYellow),
         ToolItem("Coupons", "View saved coupons", Icons.Outlined.ConfirmationNumber, CatPinkIcon, CatPink),
         ToolItem("Saved Flyers", "Your saved flyers", Icons.Outlined.MenuBook, CatBlueIcon, CatBlue),
         ToolItem("Deal Alerts", "Manage your alerts", Icons.Outlined.Campaign, CatOrangeIcon, CatOrange),
-        ToolItem("Nearby Stores", "Find stores near you", Icons.Outlined.LocationOn, CatGreenIcon, CatGreen),
-        ToolItem("Compare History", "View your recent comparisons", Icons.Outlined.CompareArrows, Purple40, LightPeriwinkle)
+        ToolItem("Nearby Stores", "Find stores near you", Icons.Outlined.LocationOn, CatGreenIcon, CatGreen)
     )
     
     // Instead of LazyVerticalGrid which requires a fixed height if put inside LazyColumn directly, we use Column of Rows.
@@ -231,7 +237,7 @@ fun MyToolsGrid() {
                 rowItems.forEach { item ->
                     Surface(
                         shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.weight(1f).aspectRatio(0.85f),
+                        modifier = Modifier.weight(1f).aspectRatio(0.85f).clickable { item.onClick() },
                         color = MaterialTheme.colorScheme.surface,
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
@@ -341,6 +347,11 @@ fun AppSettingsList(onLogout: () -> Unit, onNavigateToNotificationSettings: () -
     
     var showThemeDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var showBackupDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var showLanguageDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+
+    val localeManager = com.example.data.LocalLocaleManager.current
+    val currentLangCode by (localeManager?.currentLanguage?.collectAsState() ?: androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("en") })
+    val currentLangLabel = if (currentLangCode == "ar") "العربية" else "English"
 
     Column(
         modifier = Modifier.padding(horizontal = 16.dp),
@@ -350,9 +361,45 @@ fun AppSettingsList(onLogout: () -> Unit, onNavigateToNotificationSettings: () -
         SettingItem("Theme", "Switch between Light & Dark mode", Icons.Outlined.DarkMode, Color(0xFF5C6BC0), Color(0xFFE8EAF6), onClick = { showThemeDialog = true })
         SettingItem("Backup & Recovery", "Save lists, settings, and stats securely", Icons.Outlined.CloudUpload, Color(0xFF00ACC1), Color(0xFFE0F7FA), onClick = { showBackupDialog = true })
         SettingItem("Notifications", "Flyers, Deals, Expiry Alerts", Icons.Outlined.Notifications, CatGreenIcon, CatGreen, onClick = onNavigateToNotificationSettings)
-        SettingItem("Language", null, Icons.Outlined.Language, CatBlueIcon, CatBlue, "English")
+        SettingItem("Language / اللغة", "English or العربية (Arabic)", Icons.Outlined.Language, CatBlueIcon, CatBlue, currentLangLabel, onClick = { showLanguageDialog = true })
         SettingItem("Help & Support", "FAQs, support and feedback", Icons.Outlined.HelpOutline, CatOrangeIcon, CatOrange)
         SettingItem("Logout", "Sign out of your account", Icons.Outlined.ExitToApp, Color(0xFFF44336), Color(0xFFFFEBEE), onClick = onLogout)
+    }
+
+    if (showLanguageDialog) {
+        AlertDialog(
+            onDismissRequest = { showLanguageDialog = false },
+            title = { Text("Choose Language / اختر اللغة") },
+            text = {
+                Column {
+                    listOf("en" to "English (Default)", "ar" to "العربية (Arabic)").forEach { (code, label) ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    localeManager?.setLanguage(code)
+                                    showLanguageDialog = false
+                                }
+                                .padding(vertical = 14.dp)
+                        ) {
+                            RadioButton(
+                                selected = currentLangCode == code,
+                                onClick = {
+                                    localeManager?.setLanguage(code)
+                                    showLanguageDialog = false
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(label, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showLanguageDialog = false }) { Text("Close") }
+            }
+        )
     }
 
     if (showThemeDialog) {

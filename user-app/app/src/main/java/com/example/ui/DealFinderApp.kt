@@ -36,7 +36,15 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 
 @Composable
-fun DealFinderApp(shoppingRepo: ShoppingListRepository, dealFinderRepo: DealFinderRepository, authRepo: AuthRepository, locationManager: com.example.data.LocationManager, initialRoute: String = Screen.Home.route) {
+fun DealFinderApp(
+    shoppingRepo: ShoppingListRepository,
+    dealFinderRepo: DealFinderRepository,
+    authRepo: AuthRepository,
+    locationManager: com.example.data.LocationManager,
+    loyaltyCardDao: com.example.data.LoyaltyCardDao? = null,
+    localeManager: com.example.data.LocaleManager? = null,
+    initialRoute: String = Screen.Home.route
+) {
     val navController = rememberNavController()
     
     val items = listOf(
@@ -109,6 +117,7 @@ fun DealFinderApp(shoppingRepo: ShoppingListRepository, dealFinderRepo: DealFind
                     onNavigateToNotifications = { navController.navigate(Screen.Notifications.route) },
                     onNavigateToFlyer = { flyerId -> navController.navigate(Screen.FlyerViewer.createRoute(flyerId)) },
                     onNavigateToProduct = { productId -> navController.navigate(Screen.ProductDetail.createRoute(productId)) },
+                    onNavigateToLoyaltyCards = { navController.navigate(Screen.LoyaltyCards.route) },
                     onAddToList = { product ->
                         listViewModel.addItem(
                             com.example.data.ShoppingListItem(
@@ -131,6 +140,7 @@ fun DealFinderApp(shoppingRepo: ShoppingListRepository, dealFinderRepo: DealFind
             composable(Screen.Search.route) { // Map Compare logic to Search for now
                 CompareScreen(
                     viewModel = dealViewModel,
+                    listViewModel = listViewModel,
                     onAddToList = { product ->
                         listViewModel.addItem(
                             com.example.data.ShoppingListItem(
@@ -142,7 +152,8 @@ fun DealFinderApp(shoppingRepo: ShoppingListRepository, dealFinderRepo: DealFind
                     },
                     onNavigateToProduct = { productId -> navController.navigate(Screen.ProductDetail.createRoute(productId)) },
                     onNavigateToRetailer = { retailerId -> navController.navigate(Screen.Retailer.createRoute(retailerId)) },
-                    onNavigateToFlyer = { flyerId -> navController.navigate(Screen.FlyerViewer.createRoute(flyerId)) }
+                    onNavigateToFlyer = { flyerId -> navController.navigate(Screen.FlyerViewer.createRoute(flyerId)) },
+                    onNavigateToList = { navController.navigate(Screen.Lists.route) }
                 ) 
             }
             composable(Screen.Lists.route) {
@@ -157,7 +168,8 @@ fun DealFinderApp(shoppingRepo: ShoppingListRepository, dealFinderRepo: DealFind
                         viewModel = listViewModel,
                         dealViewModel = dealViewModel,
                         onNavigateToLocation = { navController.navigate(Screen.Location.route) },
-                        onNavigateToNotifications = { navController.navigate(Screen.NotificationSettings.route) }
+                        onNavigateToNotifications = { navController.navigate(Screen.NotificationSettings.route) },
+                        onNavigateToCompare = { navController.navigate(Screen.Search.route) }
                     )
                 }
             }
@@ -174,7 +186,8 @@ fun DealFinderApp(shoppingRepo: ShoppingListRepository, dealFinderRepo: DealFind
                         listViewModel = listViewModel,
                         authViewModel = authViewModel,
                         onLogout = { authViewModel.logout() },
-                        onNavigateToNotificationSettings = { navController.navigate(Screen.NotificationSettings.route) }
+                        onNavigateToNotificationSettings = { navController.navigate(Screen.NotificationSettings.route) },
+                        onNavigateToLoyaltyCards = { navController.navigate(Screen.LoyaltyCards.route) }
                     )
                 }
             }
@@ -250,6 +263,14 @@ fun DealFinderApp(shoppingRepo: ShoppingListRepository, dealFinderRepo: DealFind
                     authViewModel = authViewModel,
                     onBack = { navController.popBackStack() }
                 )
+            }
+            composable(Screen.LoyaltyCards.route) {
+                if (loyaltyCardDao != null) {
+                    com.example.ui.loyalty.LoyaltyCardsScreen(
+                        loyaltyCardDao = loyaltyCardDao,
+                        onNavigateBack = { navController.popBackStack() }
+                    )
+                }
             }
         }
     }

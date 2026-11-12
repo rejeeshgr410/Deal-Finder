@@ -17,6 +17,8 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.filled.Payment
+import androidx.compose.material.icons.outlined.Payment
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -41,4 +43,5 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector,
         fun createRoute(retailerId: String) = "retailer/$retailerId"
     }
     object NotificationSettings : Screen("notification_settings", "Notification Settings", Icons.Outlined.Settings, Icons.Filled.Settings)
+    object LoyaltyCards : Screen("loyalty_cards", "Loyalty Cards", Icons.Outlined.Payment, Icons.Filled.Payment)
 }

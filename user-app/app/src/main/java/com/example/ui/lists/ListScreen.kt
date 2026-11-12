@@ -37,7 +37,8 @@ fun ListScreen(
     viewModel: ListViewModel,
     dealViewModel: com.example.ui.DealFinderViewModel,
     onNavigateToLocation: () -> Unit = {},
-    onNavigateToNotifications: () -> Unit = {}
+    onNavigateToNotifications: () -> Unit = {},
+    onNavigateToCompare: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val products by dealViewModel.products.collectAsState()
@@ -108,10 +109,20 @@ fun ListScreen(
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Icon(Icons.Outlined.Share, contentDescription = null, tint = Purple40)
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("Share", color = Purple40, style = MaterialTheme.typography.titleMedium)
                 }
-                // Removed mock compare button
+
+                Button(
+                    onClick = onNavigateToCompare,
+                    modifier = Modifier.weight(1.3f).height(56.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Teal500),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(Icons.Outlined.CompareArrows, contentDescription = null, tint = Color.White)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Compare Stores", color = Color.White, style = MaterialTheme.typography.titleMedium)
+                }
             }
         }
     ) { paddingValues ->
