@@ -130,7 +130,7 @@ fun ProductDetailScreen(
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
         ) {
-            val fallbackUrl = "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80"
+            val fallbackUrl = "file:///android_asset/products/default_deal.jpg"
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -210,7 +210,7 @@ fun ProductDetailScreen(
                         modifier = Modifier.padding(14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val storeFallbackUrl = "https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=200&q=80"
+                        val storeFallbackUrl = "file:///android_asset/logos/default_logo.png"
                         Surface(
                             shape = RoundedCornerShape(10.dp),
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),

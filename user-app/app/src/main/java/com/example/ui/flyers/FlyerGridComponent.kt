@@ -90,7 +90,9 @@ fun FlyerGridCard(
         Column {
             Box {
                 AsyncImage(
-                    model = flyer.imageUrl.ifEmpty { "https://picsum.photos/300/400" },
+                    model = flyer.imageUrl.ifEmpty { "file:///android_asset/flyers/default_flyer.jpg" },
+                    error = coil.compose.rememberAsyncImagePainter("file:///android_asset/flyers/default_flyer.jpg"),
+                    placeholder = coil.compose.rememberAsyncImagePainter("file:///android_asset/flyers/default_flyer.jpg"),
                     contentDescription = flyer.title,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier

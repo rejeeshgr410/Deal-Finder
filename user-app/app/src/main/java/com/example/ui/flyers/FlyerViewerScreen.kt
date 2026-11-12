@@ -147,7 +147,7 @@ fun FlyerViewerScreen(flyerId: String, viewModel: com.example.ui.DealFinderViewM
                     }
                 }
         ) {
-            val fallbackFlyerUrl = "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=600&q=80"
+            val fallbackFlyerUrl = "file:///android_asset/flyers/default_flyer.jpg"
             AsyncImage(
                 model = flyer.imageUrl.ifBlank { fallbackFlyerUrl },
                 error = coil.compose.rememberAsyncImagePainter(fallbackFlyerUrl),

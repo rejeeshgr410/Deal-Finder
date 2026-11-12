@@ -268,7 +268,8 @@ fun DealListItem(product: ProductEntity, store: RetailerEntity? = null, onClick:
         ) {
         Box {
             AsyncImage(
-                model = product.imageUrl,
+                model = product.imageUrl.ifBlank { "file:///android_asset/products/default_deal.jpg" },
+                error = coil.compose.rememberAsyncImagePainter("file:///android_asset/products/default_deal.jpg"),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.size(64.dp).clip(RoundedCornerShape(8.dp))

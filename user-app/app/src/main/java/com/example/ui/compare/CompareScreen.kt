@@ -468,7 +468,13 @@ fun CompareScreen(
                         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                             items(filteredStores) { store ->
                                 Surface(shape = RoundedCornerShape(16.dp), modifier = Modifier.size(80.dp), onClick = { onNavigateToRetailer(store.id) }) {
-                                    AsyncImage(model = store.logoUrl, contentDescription = null, modifier = Modifier.padding(16.dp).fillMaxSize(), contentScale = ContentScale.Fit)
+                                    AsyncImage(
+                                        model = store.logoUrl.ifBlank { "file:///android_asset/logos/default_logo.png" },
+                                        error = coil.compose.rememberAsyncImagePainter("file:///android_asset/logos/default_logo.png"),
+                                        contentDescription = null,
+                                        modifier = Modifier.padding(16.dp).fillMaxSize(),
+                                        contentScale = ContentScale.Fit
+                                    )
                                 }
                             }
                         }
@@ -642,7 +648,8 @@ fun SearchResultItem(
                     modifier = Modifier.size(92.dp)
                 ) {
                     AsyncImage(
-                        model = product.imageUrl,
+                        model = product.imageUrl.ifBlank { "file:///android_asset/products/default_deal.jpg" },
+                        error = coil.compose.rememberAsyncImagePainter("file:///android_asset/products/default_deal.jpg"),
                         contentDescription = product.name,
                         contentScale = ContentScale.Fit,
                         modifier = Modifier.fillMaxSize().padding(6.dp)
@@ -772,7 +779,8 @@ fun SearchResultItem(
                         modifier = Modifier.size(24.dp)
                     ) {
                         AsyncImage(
-                            model = store?.logoUrl, 
+                            model = store?.logoUrl ?: "file:///android_asset/logos/default_logo.png", 
+                            error = coil.compose.rememberAsyncImagePainter("file:///android_asset/logos/default_logo.png"),
                             contentDescription = null, 
                             modifier = Modifier.fillMaxSize().padding(2.dp),
                             contentScale = ContentScale.Fit

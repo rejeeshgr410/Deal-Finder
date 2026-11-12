@@ -483,7 +483,8 @@ fun FlyerCard(flyer: FlyerEntity, store: RetailerEntity? = null, onClick: () -> 
                 modifier = Modifier.fillMaxWidth().height(68.dp)
             ) {
                 AsyncImage(
-                    model = store?.logoUrl,
+                    model = store?.logoUrl ?: "file:///android_asset/logos/default_logo.png",
+                    error = coil.compose.rememberAsyncImagePainter("file:///android_asset/logos/default_logo.png"),
                     contentDescription = null,
                     modifier = Modifier.padding(10.dp).fillMaxSize(),
                     contentScale = ContentScale.Fit
@@ -553,7 +554,8 @@ fun ProductCard(product: ProductEntity, store: RetailerEntity? = null, onClick: 
                     modifier = Modifier.fillMaxWidth().height(100.dp)
                 ) {
                     AsyncImage(
-                        model = product.imageUrl,
+                        model = product.imageUrl.ifBlank { "file:///android_asset/products/default_deal.jpg" },
+                        error = coil.compose.rememberAsyncImagePainter("file:///android_asset/products/default_deal.jpg"),
                         contentDescription = product.name,
                         contentScale = ContentScale.Fit,
                         modifier = Modifier.fillMaxSize().padding(6.dp)
