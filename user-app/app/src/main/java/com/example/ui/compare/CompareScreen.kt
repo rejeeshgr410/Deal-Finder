@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.collectAsState
@@ -90,40 +91,101 @@ fun CompareScreen(
     val filteredFlyers = flyers
     
     if (showFilterSheet) {
-        ModalBottomSheet(onDismissRequest = { showFilterSheet = false }) {
-           Column(modifier = Modifier.padding(16.dp).padding(bottom = 32.dp)) {
-               Text("Filters", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        ModalBottomSheet(
+            onDismissRequest = { showFilterSheet = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+            tonalElevation = 0.dp
+        ) {
+           Column(modifier = Modifier.padding(20.dp).padding(bottom = 32.dp)) {
+               Text("Filter Deals", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                Spacer(modifier = Modifier.height(16.dp))
                
-               Text("Category", style = MaterialTheme.typography.titleSmall)
+               Text("Category", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
                    val cats = listOf("All", "Groceries", "Electronics", "Fashion", "Home")
                    items(cats) { cat ->
                        val isSelected = (cat == "All" && selectedCategory == null) || cat == selectedCategory
-                       FilterChip(selected = isSelected, onClick = { selectedCategory = if (cat == "All") null else cat }, label = { Text(cat) })
+                       FilterChip(
+                           selected = isSelected, 
+                           onClick = { selectedCategory = if (cat == "All") null else cat }, 
+                           label = { Text(cat, style = MaterialTheme.typography.labelMedium) },
+                           shape = RoundedCornerShape(10.dp),
+                           colors = FilterChipDefaults.filterChipColors(
+                               selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                               selectedLabelColor = MaterialTheme.colorScheme.primary
+                           )
+                       )
                    }
                }
 
-               Text("Retailer", style = MaterialTheme.typography.titleSmall)
+               Spacer(modifier = Modifier.height(8.dp))
+               Text("Hypermarket", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                val allStores = stores
                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
                    item {
-                       FilterChip(selected = selectedRetailerId == null, onClick = { selectedRetailerId = null }, label = { Text("All") })
+                       FilterChip(
+                           selected = selectedRetailerId == null, 
+                           onClick = { selectedRetailerId = null }, 
+                           label = { Text("All Stores", style = MaterialTheme.typography.labelMedium) },
+                           shape = RoundedCornerShape(10.dp),
+                           colors = FilterChipDefaults.filterChipColors(
+                               selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                               selectedLabelColor = MaterialTheme.colorScheme.primary
+                           )
+                       )
                    }
                    items(allStores) { store ->
-                       FilterChip(selected = selectedRetailerId == store.id, onClick = { selectedRetailerId = store.id }, label = { Text(store.name) })
+                       FilterChip(
+                           selected = selectedRetailerId == store.id, 
+                           onClick = { selectedRetailerId = store.id }, 
+                           label = { Text(store.name, style = MaterialTheme.typography.labelMedium) },
+                           shape = RoundedCornerShape(10.dp),
+                           colors = FilterChipDefaults.filterChipColors(
+                               selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                               selectedLabelColor = MaterialTheme.colorScheme.primary
+                           )
+                       )
                    }
                }
                
-               Text("Max Price: AED ${maxPrice.toInt()}", style = MaterialTheme.typography.titleSmall)
-               Slider(value = maxPrice, onValueChange = { maxPrice = it }, valueRange = 0f..1000f)
+               Spacer(modifier = Modifier.height(12.dp))
+               Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                   Text("Max Price", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                   Text("AED ${maxPrice.toInt()}", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+               }
+               Slider(
+                   value = maxPrice, 
+                   onValueChange = { maxPrice = it }, 
+                   valueRange = 0f..1000f,
+                   colors = SliderDefaults.colors(
+                       thumbColor = MaterialTheme.colorScheme.primary,
+                       activeTrackColor = MaterialTheme.colorScheme.primary
+                   )
+               )
                
-               Text("Min Discount: ${minDiscount.toInt()}%", style = MaterialTheme.typography.titleSmall)
-               Slider(value = minDiscount, onValueChange = { minDiscount = it }, valueRange = 0f..100f)
+               Spacer(modifier = Modifier.height(8.dp))
+               Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                   Text("Minimum Discount", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                   Text("${minDiscount.toInt()}%", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+               }
+               Slider(
+                   value = minDiscount, 
+                   onValueChange = { minDiscount = it }, 
+                   valueRange = 0f..100f,
+                   colors = SliderDefaults.colors(
+                       thumbColor = MaterialTheme.colorScheme.primary,
+                       activeTrackColor = MaterialTheme.colorScheme.primary
+                   )
+               )
                
-               Spacer(modifier = Modifier.height(16.dp))
-               Button(onClick = { showFilterSheet = false }, modifier = Modifier.fillMaxWidth()) {
-                   Text("Apply Filters")
+               Spacer(modifier = Modifier.height(20.dp))
+               Button(
+                   onClick = { showFilterSheet = false }, 
+                   modifier = Modifier.fillMaxWidth().height(48.dp),
+                   shape = RoundedCornerShape(12.dp),
+                   colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+               ) {
+                   Text("Apply Filters", color = Color.White, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                }
            }
         }
@@ -249,73 +311,87 @@ fun CompareScreen(
             } else {
                 item {
                     Surface(
-                    shape = RoundedCornerShape(32.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    modifier = Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 16.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 16.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
-                        Icon(Icons.Outlined.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Box(modifier = Modifier.weight(1f)) {
-                            androidx.compose.foundation.text.BasicTextField(
-                                value = searchQuery,
-                                onValueChange = { searchQuery = it },
-                                textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)
-                            )
-                            if (searchQuery.isEmpty()) {
-                                Text("Search products, brands, stores...", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.align(Alignment.CenterStart))
-                            }
-                        }
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Outlined.Cancel, contentDescription = "Clear", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(20.dp))
-                            }
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .background(GoldBackground, CircleShape)
-                                .clickable { showFilterSheet = true },
-                            contentAlignment = Alignment.Center
+                        Row(
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Outlined.FilterList, contentDescription = null, tint = Color.Black)
+                            Icon(
+                                Icons.Outlined.Search, 
+                                contentDescription = null, 
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Box(modifier = Modifier.weight(1f)) {
+                                androidx.compose.foundation.text.BasicTextField(
+                                    value = searchQuery,
+                                    onValueChange = { searchQuery = it },
+                                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)
+                                )
+                                if (searchQuery.isEmpty()) {
+                                    Text(
+                                        "Search products, brands, stores…", 
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant, 
+                                        style = MaterialTheme.typography.bodyMedium, 
+                                        modifier = Modifier.align(Alignment.CenterStart)
+                                    )
+                                }
+                            }
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { searchQuery = "" }, modifier = Modifier.size(32.dp)) {
+                                    Icon(Icons.Outlined.Cancel, contentDescription = "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier.size(36.dp),
+                                onClick = { showFilterSheet = true }
+                            ) {
+                                Icon(
+                                    Icons.Outlined.FilterList, 
+                                    contentDescription = "Filter", 
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(8.dp)
+                                )
+                            }
                         }
                     }
                 }
-            }
 
             if (searchQuery.isBlank() && recentSearches.isNotEmpty()) {
                 item {
-                    Column(modifier = Modifier.padding(top = 16.dp)) {
-                        Text("Recent Searches", modifier = Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(16.dp))
+                    Column(modifier = Modifier.padding(top = 8.dp)) {
+                        Text("Recent Searches", modifier = Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                        Spacer(modifier = Modifier.height(10.dp))
                         LazyRow(
                             contentPadding = PaddingValues(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             items(recentSearches) { search ->
                                 Surface(
-                                    shape = RoundedCornerShape(24.dp),
+                                    shape = RoundedCornerShape(12.dp),
                                     color = MaterialTheme.colorScheme.surface,
                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                                     onClick = { searchQuery = search.query }
                                 ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp)) {
-                                         Icon(Icons.Outlined.History, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                         Spacer(modifier = Modifier.width(8.dp))
+                                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 12.dp, end = 6.dp, top = 2.dp, bottom = 2.dp)) {
+                                         Icon(Icons.Outlined.History, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                         Spacer(modifier = Modifier.width(6.dp))
                                          androidx.compose.foundation.layout.Box(modifier = Modifier.padding(vertical = 6.dp)) {
-                                             Text(search.query, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                                             Text(search.query, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
                                          }
                                          Spacer(modifier = Modifier.width(4.dp))
-                                         IconButton(onClick = { viewModel.deleteSearchHistory(search.query) }, modifier = Modifier.size(24.dp)) {
-                                             Icon(Icons.Outlined.Close, contentDescription = "Remove", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                         IconButton(onClick = { viewModel.deleteSearchHistory(search.query) }, modifier = Modifier.size(22.dp)) {
+                                             Icon(Icons.Outlined.Close, contentDescription = "Remove", modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                          }
                                     }
                                 }
@@ -327,24 +403,24 @@ fun CompareScreen(
 
             if (searchQuery.isBlank() && trendingSearches.isNotEmpty()) {
                 item {
-                    Column(modifier = Modifier.padding(top = 16.dp)) {
-                        Text("Trending Searches", modifier = Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(16.dp))
+                    Column(modifier = Modifier.padding(top = 8.dp)) {
+                        Text("Trending in UAE", modifier = Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                        Spacer(modifier = Modifier.height(10.dp))
                         LazyRow(
                             contentPadding = PaddingValues(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             items(trendingSearches) { search ->
                                 Surface(
-                                    shape = RoundedCornerShape(24.dp),
+                                    shape = RoundedCornerShape(12.dp),
                                     color = MaterialTheme.colorScheme.surface,
                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                                     onClick = { searchQuery = search }
                                 ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
-                                         Icon(Icons.Outlined.TrendingUp, contentDescription = null, modifier = Modifier.size(16.dp), tint = Purple40)
-                                         Spacer(modifier = Modifier.width(8.dp))
-                                         Text(search, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                                         Icon(Icons.Outlined.TrendingUp, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                                         Spacer(modifier = Modifier.width(6.dp))
+                                         Text(search, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
                                     }
                                 }
                             }
@@ -360,21 +436,20 @@ fun CompareScreen(
                         viewModel.insertSearchHistory(searchQuery)
                     }
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Results for \"$searchQuery\"", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("Results for \"$searchQuery\"", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                         Box {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.clickable { sortExpanded = true }
                             ) {
-                                Text("Sort by", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(sortBy, style = MaterialTheme.typography.labelMedium, color = Purple40, fontWeight = FontWeight.Bold)
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(16.dp), tint = Purple40)
+                                Text("Sort by: ", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(sortBy, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.width(2.dp))
+                                Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                             }
                             DropdownMenu(expanded = sortExpanded, onDismissRequest = { sortExpanded = false }) {
                                 listOf("Relevance", "Cheapest", "Nearest", "Biggest Discount", "Newest").forEach { option ->
@@ -489,45 +564,39 @@ fun SearchHeader(userLocation: String) {
         ) {
             Column {
                 Text(
-                    text = "Search",
-                    style = MaterialTheme.typography.headlineMedium,
+                    text = "Price Compare",
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
                 )
                 Text(
-                    text = "Find products across all stores",
+                    text = "Find the lowest price in UAE stores",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Outlined.LocationOn, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(userLocation, style = MaterialTheme.typography.labelMedium)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(16.dp))
-                    }
-                }
-                BadgedBox(
-                    badge = { Badge(modifier = Modifier.offset(x = (-6).dp, y = 6.dp), containerColor = Color(0xFFE53935)) { } }
-                ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(Icons.Outlined.Notifications, contentDescription = null, modifier = Modifier.padding(8.dp))
-                    }
+                    Icon(
+                        Icons.Outlined.LocationOn, 
+                        contentDescription = null, 
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        userLocation, 
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
             }
         }
@@ -551,94 +620,187 @@ fun SearchResultItem(
     val savedPercentage = if (product.oldPrice != null && product.oldPrice > 0) (savings / product.oldPrice) * 100 else 0.0
 
     val validityText = if (product.validTo > 0) {
-        val sdf = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault())
+        val sdf = java.text.SimpleDateFormat("dd MMM", java.util.Locale.getDefault())
         "Until ${sdf.format(java.util.Date(product.validTo))}"
     } else {
-        "Always Valid"
+        "Active offer"
     }
 
     Surface(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-        shape = RoundedCornerShape(24.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp),
+        shape = RoundedCornerShape(18.dp),
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         onClick = onClick
     ) {
-        Row(modifier = Modifier.padding(16.dp)) {
-            Box(
-                modifier = Modifier
-                    .size(120.dp)
-                    .background(Color.White, RoundedCornerShape(16.dp))
-                    .clip(RoundedCornerShape(16.dp))
-            ) {
-                AsyncImage(
-                    model = product.imageUrl,
-                    contentDescription = null,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize().padding(12.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
-                    Column(modifier = Modifier.weight(1f)) {
-                         Text(product.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, maxLines = 2)
-                         Spacer(modifier = Modifier.height(4.dp))
-                         Text(product.brand, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    modifier = Modifier.size(92.dp)
+                ) {
+                    AsyncImage(
+                        model = product.imageUrl,
+                        contentDescription = product.name,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxSize().padding(6.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                product.name, 
+                                fontWeight = FontWeight.SemiBold, 
+                                style = MaterialTheme.typography.titleSmall, 
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                product.brand, 
+                                style = MaterialTheme.typography.labelSmall, 
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (isCheapest) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.primaryContainer, 
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(
+                                    "CHEAPEST", 
+                                    color = MaterialTheme.colorScheme.primary, 
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), 
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
                     }
-                    if (isCheapest) {
-                        Surface(color = CatGreen, shape = RoundedCornerShape(8.dp)) {
-                            Text("Cheapest", color = Teal500, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                    
+                    Spacer(modifier = Modifier.height(6.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    "AED ", 
+                                    style = MaterialTheme.typography.labelSmall, 
+                                    color = MaterialTheme.colorScheme.primary, 
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    "%.2f".format(product.currentPrice), 
+                                    fontWeight = FontWeight.Bold, 
+                                    style = MaterialTheme.typography.titleMedium, 
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            if (product.oldPrice != null && savedPercentage > 0) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        "AED %.2f".format(product.oldPrice),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textDecoration = TextDecoration.LineThrough
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.errorContainer, 
+                                        shape = RoundedCornerShape(4.dp)
+                                    ) {
+                                        Text(
+                                            "-${savedPercentage.toInt()}%", 
+                                            color = MaterialTheme.colorScheme.error, 
+                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), 
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp), 
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        
+                        FilledTonalButton(
+                            onClick = onAddToList,
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(34.dp),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.primary
+                            )
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Add", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-                    Column {
-                         Surface(color = CatGreen, shape = RoundedCornerShape(8.dp)) {
-                             Row(modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                 Text("4.6", style = MaterialTheme.typography.labelSmall, color = Teal500, fontWeight = FontWeight.Bold)
-                                 Icon(Icons.Default.Star, contentDescription = null, tint = Teal500, modifier = Modifier.size(10.dp).padding(start = 2.dp))
-                             }
-                         }
-                         Spacer(modifier = Modifier.height(8.dp))
-                         Text("1 ${product.unitType} = AED ${"%.2f".format(unitPrice)}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                         Spacer(modifier = Modifier.height(4.dp))
-                         Text(validityText, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            }
+            
+            Spacer(modifier = Modifier.height(10.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clickable(onClick = onStoreClick)
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        AsyncImage(
+                            model = store?.logoUrl, 
+                            contentDescription = null, 
+                            modifier = Modifier.fillMaxSize().padding(2.dp),
+                            contentScale = ContentScale.Fit
+                        )
                     }
-                    Column(horizontalAlignment = Alignment.End) {
-                         Text("AED ${"%.2f".format(product.currentPrice)}", fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleLarge, color = Color(0xFFD32F2F))
-                         Row(verticalAlignment = Alignment.CenterVertically) {
-                             if (product.oldPrice != null && savedPercentage > 0) {
-                                 Text(
-                                     "AED ${"%.2f".format(product.oldPrice)}",
-                                     style = MaterialTheme.typography.labelMedium,
-                                     color = MaterialTheme.colorScheme.outline,
-                                     textDecoration = TextDecoration.LineThrough
-                                 )
-                                 Spacer(modifier = Modifier.width(6.dp))
-                                 Surface(color = CatRed, shape = RoundedCornerShape(6.dp)) {
-                                     Text("Save AED ${"%.2f".format(savings)} (-${savedPercentage.toInt()}%)", color = CatRedIcon, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp), fontWeight = FontWeight.Bold)
-                                 }
-                             }
-                         }
-                         Spacer(modifier = Modifier.height(12.dp))
-                         Row(
-                             verticalAlignment = Alignment.CenterVertically,
-                             modifier = Modifier.clickable(onClick = onStoreClick)
-                         ) {
-                             AsyncImage(model = store?.logoUrl, contentDescription = null, modifier = Modifier.size(20.dp).clip(CircleShape))
-                             Spacer(modifier = Modifier.width(8.dp))
-                             Column(horizontalAlignment = Alignment.End) {
-                                 Text(store?.name ?: "", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
-                                 if (distanceKm != null) {
-                                     val branchInfo = if (nearestBranchName != null) " ($nearestBranchName)" else ""
-                                      Text("${"%.1f".format(distanceKm)} km away$branchInfo", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = MaterialTheme.colorScheme.outline)
-                                 }
-                             }
-                         }
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        store?.name ?: "Store", 
+                        style = MaterialTheme.typography.labelMedium, 
+                        color = MaterialTheme.colorScheme.onSurface, 
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    if (distanceKm != null) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            "• ${"%.1f".format(distanceKm)} km away", 
+                            style = MaterialTheme.typography.labelSmall, 
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
+                
+                Text(
+                    validityText, 
+                    style = MaterialTheme.typography.labelSmall, 
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
     }

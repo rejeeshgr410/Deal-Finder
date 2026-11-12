@@ -79,7 +79,7 @@ fun AccountScreen(
 
 @Composable
 fun AccountHeader() {
-    Column(modifier = Modifier.padding(16.dp)) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -93,8 +93,8 @@ fun AccountHeader() {
                     color = MaterialTheme.colorScheme.onBackground
                 )
                 Text(
-                    text = "Manage your profile, lists and preferences",
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = "Manage your profile, lists, and preferences",
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -102,29 +102,29 @@ fun AccountHeader() {
                 Surface(
                     shape = RoundedCornerShape(20.dp),
                     color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Dubai", style = MaterialTheme.typography.labelMedium)
+                        Text("Dubai", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium)
                         Spacer(modifier = Modifier.width(4.dp))
                         Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(16.dp))
                     }
                 }
                 BadgedBox(
-                    badge = { Badge(modifier = Modifier.offset(x = (-6).dp, y = 6.dp), containerColor = Color(0xFFE53935)) { } }
+                    badge = { Badge(modifier = Modifier.offset(x = (-4).dp, y = 4.dp), containerColor = MaterialTheme.colorScheme.primary) { } }
                 ) {
                     Surface(
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
                         modifier = Modifier.size(40.dp)
                     ) {
-                        Icon(Icons.Outlined.Notifications, contentDescription = null, modifier = Modifier.padding(8.dp))
+                        Icon(Icons.Outlined.Notifications, contentDescription = null, modifier = Modifier.padding(10.dp))
                     }
                 }
             }
@@ -153,19 +153,25 @@ fun ProfileCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
                     shape = CircleShape,
-                    color = Color(0xFFFFF3E0),
-                    modifier = Modifier.size(64.dp)
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.size(56.dp)
                 ) {
-                    // Placeholder for Avatar
-                    Icon(Icons.Default.Person, contentDescription = null, tint = Color(0xFFFFB74D), modifier = Modifier.padding(12.dp))
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Default.Person,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
@@ -173,25 +179,24 @@ fun ProfileCard(
                     Text(email, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(4.dp))
                     Surface(
-                        color = Color(0xFFEDE7F6),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Outlined.WorkspacePremium, contentDescription = null, modifier = Modifier.size(16.dp), tint = Purple40)
+                        Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.WorkspacePremium, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Regular Member", style = MaterialTheme.typography.labelMedium, color = Purple40)
+                            Text("Member", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
-                Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             
-            Spacer(modifier = Modifier.height(20.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), thickness = 1.dp)
+            Spacer(modifier = Modifier.height(16.dp))
             
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                StatItem(icon = Icons.Outlined.LocalOffer, count = savedDealsCount, label = "Saved Deals", iconColor = Purple40, bgColor = LightPeriwinkle)
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                StatItem(icon = Icons.Outlined.LocalOffer, count = savedDealsCount, label = "Saved Deals", iconColor = Color(0xFF4F46E5), bgColor = Color(0xFFEEF2FF))
                 StatItem(icon = Icons.Default.Favorite, count = favStoresCount, label = "Favorite Stores", iconColor = CatPinkIcon, bgColor = CatPink)
                 StatItem(icon = Icons.Outlined.List, count = listCount, label = "Shopping Lists", iconColor = CatYellowIcon, bgColor = CatYellow)
                 StatItem(icon = Icons.Outlined.Notifications, count = alertsCount, label = "Price Alerts", iconColor = CatGreenIcon, bgColor = CatGreen)
@@ -203,65 +208,82 @@ fun ProfileCard(
 @Composable
 fun StatItem(icon: ImageVector, count: String, label: String, iconColor: Color, bgColor: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-             Surface(shape = CircleShape, color = bgColor, modifier = Modifier.size(36.dp)) {
-                 Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.padding(8.dp))
-             }
-             Spacer(modifier = Modifier.width(8.dp))
-             Text(count, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+        Surface(shape = CircleShape, color = bgColor, modifier = Modifier.size(36.dp)) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(18.dp))
+            }
         }
         Spacer(modifier = Modifier.height(6.dp))
+        Text(count, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+        Spacer(modifier = Modifier.height(2.dp))
         Text(label, style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
-data class ToolItem(val name: String, val desc: String, val icon: ImageVector, val iconColor: Color, val bgColor: Color, val onClick: () -> Unit = {})
+data class ToolItem(val name: String, val icon: ImageVector, val iconColor: Color, val bgColor: Color, val onClick: () -> Unit = {})
 
 @Composable
 fun MyToolsGrid(onNavigateToLoyaltyCards: () -> Unit = {}) {
     val tools = listOf(
-        ToolItem("Loyalty Cards", "Digital barcode membership cards", Icons.Outlined.CreditCard, Color(0xFF004F9F), Color(0xFFE3F2FD), onClick = onNavigateToLoyaltyCards),
-        ToolItem("Smart Lists", "Create & manage smart lists", Icons.Outlined.ShoppingBasket, CatGreenIcon, CatGreen),
-        ToolItem("Budget Planner", "Track spending & savings", Icons.Outlined.AccountBalanceWallet, Color(0xFF5C6BC0), Color(0xFFE8EAF6)),
-        ToolItem("Price History", "Track price trends of products", Icons.Outlined.ShowChart, CatYellowIcon, CatYellow),
-        ToolItem("Coupons", "View saved coupons", Icons.Outlined.ConfirmationNumber, CatPinkIcon, CatPink),
-        ToolItem("Saved Flyers", "Your saved flyers", Icons.Outlined.MenuBook, CatBlueIcon, CatBlue),
-        ToolItem("Deal Alerts", "Manage your alerts", Icons.Outlined.Campaign, CatOrangeIcon, CatOrange),
-        ToolItem("Nearby Stores", "Find stores near you", Icons.Outlined.LocationOn, CatGreenIcon, CatGreen)
+        ToolItem("Loyalty Cards", Icons.Outlined.CreditCard, Color(0xFF004F9F), Color(0xFFE3F2FD), onClick = onNavigateToLoyaltyCards),
+        ToolItem("Smart Lists", Icons.Outlined.ShoppingBasket, CatGreenIcon, CatGreen),
+        ToolItem("Budget Planner", Icons.Outlined.AccountBalanceWallet, Color(0xFF4F46E5), Color(0xFFEEF2FF)),
+        ToolItem("Price History", Icons.Outlined.ShowChart, CatYellowIcon, CatYellow),
+        ToolItem("Coupons", Icons.Outlined.ConfirmationNumber, CatPinkIcon, CatPink),
+        ToolItem("Saved Flyers", Icons.Outlined.MenuBook, CatBlueIcon, CatBlue),
+        ToolItem("Deal Alerts", Icons.Outlined.Campaign, CatOrangeIcon, CatOrange),
+        ToolItem("Nearby Stores", Icons.Outlined.LocationOn, CatGreenIcon, CatGreen)
     )
-    
-    // Instead of LazyVerticalGrid which requires a fixed height if put inside LazyColumn directly, we use Column of Rows.
-    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-        tools.chunked(4).forEach { rowItems ->
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                rowItems.forEach { item ->
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.weight(1f).aspectRatio(0.85f).clickable { item.onClick() },
-                        color = MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                    ) {
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+    ) {
+        Column(modifier = Modifier.padding(vertical = 12.dp, horizontal = 8.dp)) {
+            tools.chunked(4).forEachIndexed { index, rowItems ->
+                if (index > 0) Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    rowItems.forEach { item ->
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center,
-                            modifier = Modifier.padding(8.dp)
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { item.onClick() }
+                                .padding(vertical = 8.dp, horizontal = 2.dp)
                         ) {
-                            Surface(shape = RoundedCornerShape(16.dp), color = item.bgColor, modifier = Modifier.size(56.dp)) {
-                                Icon(item.icon, contentDescription = null, tint = item.iconColor, modifier = Modifier.padding(16.dp))
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = item.bgColor,
+                                modifier = Modifier.size(48.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(item.icon, contentDescription = null, tint = item.iconColor, modifier = Modifier.size(22.dp))
+                                }
                             }
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(item.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(item.desc, style = MaterialTheme.typography.labelSmall.copy(lineHeight = 14.sp), color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                item.name,
+                                fontWeight = FontWeight.Medium,
+                                style = MaterialTheme.typography.labelSmall,
+                                textAlign = TextAlign.Center,
+                                maxLines = 2,
+                                lineHeight = 14.sp
+                            )
                         }
                     }
-                }
-                // Fill empty slots if less than 4
-                repeat(4 - rowItems.size) {
-                    Spacer(modifier = Modifier.weight(1f))
+                    repeat(4 - rowItems.size) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
@@ -353,17 +375,31 @@ fun AppSettingsList(onLogout: () -> Unit, onNavigateToNotificationSettings: () -
     val currentLangCode by (localeManager?.currentLanguage?.collectAsState() ?: androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("en") })
     val currentLangLabel = if (currentLangCode == "ar") "العربية" else "English"
 
-    Column(
-        modifier = Modifier.padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
     ) {
-        SettingItem("Settings", "Manage your app preferences", Icons.Outlined.Settings, Purple40, LightPeriwinkle)
-        SettingItem("Theme", "Switch between Light & Dark mode", Icons.Outlined.DarkMode, Color(0xFF5C6BC0), Color(0xFFE8EAF6), onClick = { showThemeDialog = true })
-        SettingItem("Backup & Recovery", "Save lists, settings, and stats securely", Icons.Outlined.CloudUpload, Color(0xFF00ACC1), Color(0xFFE0F7FA), onClick = { showBackupDialog = true })
-        SettingItem("Notifications", "Flyers, Deals, Expiry Alerts", Icons.Outlined.Notifications, CatGreenIcon, CatGreen, onClick = onNavigateToNotificationSettings)
-        SettingItem("Language / اللغة", "English or العربية (Arabic)", Icons.Outlined.Language, CatBlueIcon, CatBlue, currentLangLabel, onClick = { showLanguageDialog = true })
-        SettingItem("Help & Support", "FAQs, support and feedback", Icons.Outlined.HelpOutline, CatOrangeIcon, CatOrange)
-        SettingItem("Logout", "Sign out of your account", Icons.Outlined.ExitToApp, Color(0xFFF44336), Color(0xFFFFEBEE), onClick = onLogout)
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+        ) {
+            SettingItem("Preferences", "Notifications, currency, and search defaults", Icons.Outlined.Tune, Color(0xFF4F46E5), Color(0xFFEEF2FF))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
+            SettingItem("Theme", "Switch between Light & Dark mode", Icons.Outlined.DarkMode, Color(0xFF5C6BC0), Color(0xFFE8EAF6), onClick = { showThemeDialog = true })
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
+            SettingItem("Backup & Recovery", "Save lists, settings, and stats securely", Icons.Outlined.CloudUpload, Color(0xFF00ACC1), Color(0xFFE0F7FA), onClick = { showBackupDialog = true })
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
+            SettingItem("Notifications", "Flyers, Deals, Expiry Alerts", Icons.Outlined.Notifications, CatGreenIcon, CatGreen, onClick = onNavigateToNotificationSettings)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
+            SettingItem("Language / اللغة", "English or العربية (Arabic)", Icons.Outlined.Language, CatBlueIcon, CatBlue, currentLangLabel, onClick = { showLanguageDialog = true })
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
+            SettingItem("Help & Support", "FAQs, support and feedback", Icons.Outlined.HelpOutline, CatOrangeIcon, CatOrange)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
+            SettingItem("Logout", "Sign out of your account", Icons.Outlined.ExitToApp, Color(0xFFE11D48), Color(0xFFFFE4E6), onClick = onLogout)
+        }
     }
 
     if (showLanguageDialog) {
@@ -519,23 +555,29 @@ fun AppSettingsList(onLogout: () -> Unit, onNavigateToNotificationSettings: () -
 @Composable
 fun SettingItem(title: String, desc: String?, icon: ImageVector, iconColor: Color, bgColor: Color, value: String? = null, onClick: () -> Unit = {}) {
     Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Surface(shape = CircleShape, color = bgColor, modifier = Modifier.size(48.dp)) {
-            Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.padding(12.dp))
+        Surface(shape = RoundedCornerShape(12.dp), color = bgColor, modifier = Modifier.size(40.dp)) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(20.dp))
+            }
         }
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            Text(title, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
             if (desc != null) {
-                Text(desc, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(desc, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         if (value != null) {
-            Text(value, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
             Spacer(modifier = Modifier.width(8.dp))
         }
-        Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
     }
 }

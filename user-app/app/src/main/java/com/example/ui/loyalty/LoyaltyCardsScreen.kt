@@ -75,12 +75,12 @@ fun LoyaltyCardsScreen(
                 title = {
                     Column {
                         Text(
-                            "Loyalty Cards Wallet",
+                            "Loyalty Cards",
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.titleLarge
                         )
                         Text(
-                            "Scan digital barcodes at cashier checkouts",
+                            "Scan digital barcodes at checkout",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -122,25 +122,34 @@ fun LoyaltyCardsScreen(
             ) {
                 item {
                     Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
                             modifier = Modifier.padding(14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                Icons.Default.QrCodeScanner,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
-                            )
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Default.QrCodeScanner,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
-                                "Tap any membership card to display high-contrast barcode for supermarket cashiers.",
+                                "Tap any loyalty card to display a full-screen barcode for supermarket checkout scanners.",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -303,16 +312,16 @@ fun LoyaltyCardItem(
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                "TAP TO EXPAND",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
+                                "Tap to scan",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
                                 color = Color(card.colorHex)
                             )
                             Icon(
                                 Icons.Default.OpenInFull,
                                 contentDescription = null,
                                 tint = Color(card.colorHex),
-                                modifier = Modifier.size(14.dp).padding(start = 2.dp)
+                                modifier = Modifier.size(13.dp).padding(start = 3.dp)
                             )
                         }
                     }
@@ -605,13 +614,13 @@ fun EmptyLoyaltyState(
             }
             Spacer(modifier = Modifier.height(20.dp))
             Text(
-                "Your Wallet is Empty",
-                style = MaterialTheme.typography.headlineSmall,
+                "No loyalty cards yet",
+                style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                "Add your Carrefour MyClub, Lulu Happiness, Nesto INAM, or any retail loyalty card. Show the digital barcode at the checkout counter to earn points without plastic cards.",
+                "Add your Carrefour MyClub, Lulu Happiness, Nesto INAM, or any supermarket loyalty card to scan at checkout without carrying plastic.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -619,12 +628,12 @@ fun EmptyLoyaltyState(
             Spacer(modifier = Modifier.height(24.dp))
             Button(
                 onClick = onAddClicked,
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(14.dp),
                 modifier = Modifier.height(48.dp)
             ) {
-                Icon(Icons.Default.Add, contentDescription = null)
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Add Your First Card")
+                Text("Add loyalty card")
             }
         }
     }

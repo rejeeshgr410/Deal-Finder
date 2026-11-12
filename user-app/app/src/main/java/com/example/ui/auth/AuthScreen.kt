@@ -1,12 +1,16 @@
 package com.example.ui.auth
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -16,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -49,34 +54,62 @@ fun AuthScreen(viewModel: AuthViewModel, onLoginSuccess: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.size(64.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.ShoppingBag,
+                        contentDescription = "Deal Finder",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+
             Text(
-                text = if (isForgotPasswordMode) "Reset Password" else if (isLoginMode) "Welcome Back" else "Create Account",
-                style = MaterialTheme.typography.headlineLarge,
+                text = if (isForgotPasswordMode) "Reset password" else if (isLoginMode) "Welcome back" else "Create an account",
+                style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold
             )
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = if (isForgotPasswordMode) "Enter your registered email to receive a password reset link."
+                       else if (isLoginMode) "Log in to access your saved deals, flyers, and smart lists."
+                       else "Join Deal Finder to find best prices and flyers in the UAE.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            Spacer(modifier = Modifier.height(28.dp))
 
             if (!isLoginMode && !isForgotPasswordMode) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Full Name") },
+                    label = { Text("Full name") },
                     leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(14.dp),
+                    singleLine = true
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
             }
 
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
-                label = { Text("Email Address") },
+                label = { Text("Email address") },
                 leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(14.dp),
+                singleLine = true
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             if (!isForgotPasswordMode) {
                 OutlinedTextField(
@@ -92,7 +125,8 @@ fun AuthScreen(viewModel: AuthViewModel, onLoginSuccess: () -> Unit) {
                     },
                     visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(14.dp),
+                    singleLine = true
                 )
 
                 if (isLoginMode) {
@@ -105,26 +139,49 @@ fun AuthScreen(viewModel: AuthViewModel, onLoginSuccess: () -> Unit) {
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(checked = rememberMe, onCheckedChange = { rememberMe = it })
-                            Text("Remember me")
+                            Text("Remember me", style = MaterialTheme.typography.bodySmall)
                         }
                         Text(
-                            text = "Forgot Password?",
+                            text = "Forgot password?",
                             color = MaterialTheme.colorScheme.primary,
-                            style = MaterialTheme.typography.labelLarge,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.clickable { isForgotPasswordMode = true }
                         )
                     }
                 }
             }
             
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
             
             if (authState is AuthState.Error) {
-                Text(
-                    text = (authState as AuthState.Error).message,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = (authState as AuthState.Error).message,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
             }
 
             Button(
@@ -139,38 +196,46 @@ fun AuthScreen(viewModel: AuthViewModel, onLoginSuccess: () -> Unit) {
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp),
+                    .height(52.dp),
+                shape = RoundedCornerShape(14.dp),
                 enabled = authState !is AuthState.Loading
             ) {
                 if (authState is AuthState.Loading) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
                 } else {
-                    Text(if (isForgotPasswordMode) "Send Reset Link" else if (isLoginMode) "Login" else "Sign Up")
+                    Text(
+                        if (isForgotPasswordMode) "Send reset link" else if (isLoginMode) "Log in" else "Create account",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
-            }
-
-            if (isLoginMode && !isForgotPasswordMode) {
-                Spacer(modifier = Modifier.height(16.dp))
-                // Google Login removed since it requires Activity context and CredentialManager
-                // which is beyond iterative prototyping here.
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
             if (!isForgotPasswordMode) {
-                Row(modifier = Modifier.clickable { isLoginMode = !isLoginMode }) {
-                    Text(if (isLoginMode) "Don't have an account? " else "Already have an account? ")
+                Row(
+                    modifier = Modifier.clickable { isLoginMode = !isLoginMode },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        text = if (isLoginMode) "Sign Up" else "Login",
+                        if (isLoginMode) "Don't have an account? " else "Already have an account? ",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = if (isLoginMode) "Sign up" else "Log in",
                         color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyMedium
                     )
                 }
             } else {
                 Text(
-                    text = "Back to Login",
+                    text = "Back to log in",
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.clickable { isForgotPasswordMode = false }
                 )
             }

@@ -18,40 +18,50 @@ val LocalThemeManager = staticCompositionLocalOf<com.example.data.ThemeManager> 
 
 private val DarkColorScheme =
   darkColorScheme(
-    primary = Teal500,
+    primary = Emerald500,
     onPrimary = Color.White,
-    primaryContainer = Teal600,
+    primaryContainer = Emerald700,
     onPrimaryContainer = Color.White,
-    secondary = Slate100,
+    secondary = Slate200,
     onSecondary = Slate900,
+    secondaryContainer = Slate800,
+    onSecondaryContainer = Slate100,
     background = Slate900,
     onBackground = Slate50,
-    surface = Slate900,
+    surface = Slate800,
     onSurface = Slate50,
-    surfaceVariant = Slate600,
-    onSurfaceVariant = Slate100,
+    surfaceVariant = Slate700,
+    onSurfaceVariant = Slate300,
     outline = Slate600,
-    error = Red600
+    outlineVariant = Slate700,
+    error = Red600,
+    errorContainer = Color(0xFF4C0519),
+    onErrorContainer = Color(0xFFFFD1D8)
   )
 
 private val LightColorScheme =
   lightColorScheme(
-    primary = Teal600,
+    primary = Emerald600,
     onPrimary = Color.White,
-    primaryContainer = Teal100,
-    onPrimaryContainer = Teal600,
-    secondary = Slate900,
+    primaryContainer = Emerald50,
+    onPrimaryContainer = Emerald700,
+    secondary = Slate800,
     onSecondary = Color.White,
-    secondaryContainer = GoldBackground,
+    secondaryContainer = Slate100,
     onSecondaryContainer = Slate900,
+    tertiary = Purple40,
+    onTertiary = Color.White,
     background = BackgroundLight,
     onBackground = Slate900,
     surface = Color.White,
     onSurface = Slate900,
-    surfaceVariant = Color.White,
-    onSurfaceVariant = Slate500,
-    outline = Slate100,
-    error = Red600
+    surfaceVariant = Slate50,
+    onSurfaceVariant = Slate600,
+    outline = Slate200,
+    outlineVariant = Slate100,
+    error = Red600,
+    errorContainer = Red50,
+    onErrorContainer = Red600
   )
 
 @Composable

@@ -22,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -85,43 +86,48 @@ fun ListScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-                    .background(MaterialTheme.colorScheme.background),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 0.dp,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
-                val context = androidx.compose.ui.platform.LocalContext.current
-                Button(
-                    onClick = {
-                        val shareText = "My Shopping List ($currentListId):\n" + displayItems.joinToString("\n") { "• ${it.name} (x${it.qty}) - AED ${it.targetPrice}" }
-                        val sendIntent = android.content.Intent().apply {
-                            action = android.content.Intent.ACTION_SEND
-                            putExtra(android.content.Intent.EXTRA_TEXT, shareText)
-                            type = "text/plain"
-                        }
-                        val shareIntent = android.content.Intent.createChooser(sendIntent, null)
-                        context.startActivity(shareIntent)
-                    },
-                    modifier = Modifier.weight(1f).height(56.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = LightPeriwinkle),
-                    shape = RoundedCornerShape(16.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Icon(Icons.Outlined.Share, contentDescription = null, tint = Purple40)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Share", color = Purple40, style = MaterialTheme.typography.titleMedium)
-                }
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    OutlinedButton(
+                        onClick = {
+                            val shareText = "My Shopping List ($currentListId):\n" + displayItems.joinToString("\n") { "• ${it.name} (x${it.qty}) - AED ${it.targetPrice}" }
+                            val sendIntent = android.content.Intent().apply {
+                                action = android.content.Intent.ACTION_SEND
+                                putExtra(android.content.Intent.EXTRA_TEXT, shareText)
+                                type = "text/plain"
+                            }
+                            val shareIntent = android.content.Intent.createChooser(sendIntent, null)
+                            context.startActivity(shareIntent)
+                        },
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) {
+                        Icon(Icons.Outlined.Share, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Share", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelLarge)
+                    }
 
-                Button(
-                    onClick = onNavigateToCompare,
-                    modifier = Modifier.weight(1.3f).height(56.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Teal500),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Icon(Icons.Outlined.CompareArrows, contentDescription = null, tint = Color.White)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Compare Stores", color = Color.White, style = MaterialTheme.typography.titleMedium)
+                    Button(
+                        onClick = onNavigateToCompare,
+                        modifier = Modifier.weight(1.4f).height(48.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Outlined.CompareArrows, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Compare Stores", color = Color.White, style = MaterialTheme.typography.labelLarge)
+                    }
                 }
             }
         }
@@ -286,53 +292,54 @@ fun ListTabs(
             val tabName = tabs[i]
             val isSelected = tabName == currentListId
             Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = if (isSelected) GoldBackground else MaterialTheme.colorScheme.surface,
-                border = if (!isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant) else null,
+                shape = RoundedCornerShape(12.dp),
+                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.3f) else MaterialTheme.colorScheme.outlineVariant),
                 onClick = { onTabSelected(tabName) }
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         Icons.Outlined.ShoppingBasket,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
-                        tint = if (isSelected) Color.Black else Teal500
+                        tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         tabName,
                         style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (isSelected) Color.Black else MaterialTheme.colorScheme.onSurface
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
         }
         item {
             Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = LightPeriwinkle,
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 onClick = onAddNew
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         Icons.Default.Add,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
-                        tint = Purple40
+                        tint = MaterialTheme.colorScheme.onSurface
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         "New List",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = Purple40
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
@@ -378,27 +385,41 @@ fun BudgetCard(
 
     Surface(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(24.dp),
-        color = Color(0xFFF3E5F5)
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Row(
-            modifier = Modifier.padding(24.dp)
+            modifier = Modifier.padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Monthly Budget limit", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text("AED", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("500.00", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp).padding(bottom = 4.dp), tint = Color(0xFF7E57C2))
+                Text(
+                    "Monthly Budget Tracker", 
+                    style = MaterialTheme.typography.labelSmall, 
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "AED ", 
+                        style = MaterialTheme.typography.labelSmall, 
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        "500.00", 
+                        style = MaterialTheme.typography.headlineSmall, 
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
                 LinearProgressIndicator(
                     progress = { progressRatio },
-                    modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
-                    color = Color(0xFF7E57C2),
-                    trackColor = Color(0xFFD1C4E9)
+                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.primaryContainer
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -407,21 +428,13 @@ fun BudgetCard(
                 }
             }
             Spacer(modifier = Modifier.width(16.dp))
-            Divider(modifier = Modifier.height(100.dp).width(1.dp), color = MaterialTheme.colorScheme.outlineVariant)
+            VerticalDivider(modifier = Modifier.height(80.dp), color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(modifier = Modifier.width(16.dp))
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(100.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("You'll Save", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Icon(Icons.Default.Info, contentDescription = "Savings info badge", modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.outline)
-                }
-                Text("AED ${String.format("%.2f", savings)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Teal500)
-                Text("with best prices", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(modifier = Modifier.height(8.dp))
-                // Box acting as an illustration placeholder
-                Box(modifier = Modifier.size(60.dp).background(Color(0xFFB0A4F6), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.ShoppingBasket, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
-                }
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(90.dp)) {
+                Text("Potential Savings", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("AED ${String.format("%.2f", savings)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                Text("with best store", style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -436,57 +449,115 @@ fun ListItemView(
     onRemove: () -> Unit,
     onQtyChange: (Int) -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).background(Color.White, RoundedCornerShape(16.dp)).padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
-        Surface(
-            shape = RoundedCornerShape(8.dp),
-            color = if (shopItem.isSelected) Purple40 else Color.Transparent,
-            border = if (!shopItem.isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.outlineVariant) else null,
-            modifier = Modifier.size(28.dp),
-            onClick = onToggleSelection
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            if (shopItem.isSelected) {
-                Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.padding(4.dp))
-            }
-        }
-        Spacer(modifier = Modifier.width(16.dp))
-        AsyncImage(
-            model = product?.imageUrl,
-            contentDescription = null,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.size(64.dp)
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(shopItem.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, textDecoration = if (!shopItem.isSelected) TextDecoration.LineThrough else null)
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
-                Surface(
-                    shape = CircleShape, color = LightPeriwinkle, modifier = Modifier.size(24.dp),
-                    onClick = { if (shopItem.qty > 1) onQtyChange(shopItem.qty - 1) else onRemove() }
-                ) {
-                    Icon(if (shopItem.qty > 1) Icons.Default.Remove else Icons.Default.Delete, contentDescription = null, tint = Purple40, modifier = Modifier.padding(4.dp))
-                }
-                Text("${shopItem.qty}", modifier = Modifier.padding(horizontal = 12.dp), style = MaterialTheme.typography.titleSmall)
-                Surface(
-                    shape = CircleShape, color = LightPeriwinkle, modifier = Modifier.size(24.dp),
-                    onClick = { onQtyChange(shopItem.qty + 1) }
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null, tint = Purple40, modifier = Modifier.padding(4.dp))
-                }
-            }
-        }
-        Column(horizontalAlignment = Alignment.End) {
             Surface(
-                color = CatGreen,
-                shape = RoundedCornerShape(8.dp)
+                shape = RoundedCornerShape(8.dp),
+                color = if (shopItem.isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                border = if (!shopItem.isSelected) BorderStroke(1.5.dp, MaterialTheme.colorScheme.outlineVariant) else null,
+                modifier = Modifier.size(24.dp),
+                onClick = onToggleSelection
             ) {
-                Text(store?.name ?: "", style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = Teal500, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                if (shopItem.isSelected) {
+                    Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.padding(3.dp))
+                }
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("AED ${String.format("%.2f", shopItem.targetPrice * shopItem.qty)}", fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.width(12.dp))
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                modifier = Modifier.size(56.dp)
+            ) {
+                AsyncImage(
+                    model = product?.imageUrl,
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize().padding(4.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    shopItem.name, 
+                    fontWeight = FontWeight.SemiBold, 
+                    style = MaterialTheme.typography.bodyMedium, 
+                    textDecoration = if (!shopItem.isSelected) TextDecoration.LineThrough else null,
+                    color = if (shopItem.isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
+                    Surface(
+                        shape = CircleShape, 
+                        color = MaterialTheme.colorScheme.surfaceVariant, 
+                        modifier = Modifier.size(26.dp),
+                        onClick = { if (shopItem.qty > 1) onQtyChange(shopItem.qty - 1) else onRemove() }
+                    ) {
+                        Icon(
+                            if (shopItem.qty > 1) Icons.Default.Remove else Icons.Default.Delete, 
+                            contentDescription = "Decrease", 
+                            tint = MaterialTheme.colorScheme.onSurface, 
+                            modifier = Modifier.padding(5.dp)
+                        )
+                    }
+                    Text(
+                        "${shopItem.qty}", 
+                        modifier = Modifier.padding(horizontal = 10.dp), 
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Surface(
+                        shape = CircleShape, 
+                        color = MaterialTheme.colorScheme.surfaceVariant, 
+                        modifier = Modifier.size(26.dp),
+                        onClick = { onQtyChange(shopItem.qty + 1) }
+                    ) {
+                        Icon(
+                            Icons.Default.Add, 
+                            contentDescription = "Increase", 
+                            tint = MaterialTheme.colorScheme.onSurface, 
+                            modifier = Modifier.padding(5.dp)
+                        )
+                    }
+                }
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                if (store != null) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            store.name, 
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), 
+                            color = MaterialTheme.colorScheme.primary, 
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "AED ", 
+                        style = MaterialTheme.typography.labelSmall, 
+                        color = MaterialTheme.colorScheme.primary, 
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        String.format("%.2f", shopItem.targetPrice * shopItem.qty), 
+                        fontWeight = FontWeight.Bold, 
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
             }
         }
     }

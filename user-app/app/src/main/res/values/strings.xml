@@ -19,12 +19,12 @@
     <string name="search_placeholder">Search groceries, electronics, flyers…</string>
 
     <!-- Loyalty Wallet -->
-    <string name="loyalty_wallet_title">Loyalty Cards Wallet</string>
+    <string name="loyalty_wallet_title">Loyalty Cards</string>
     <string name="loyalty_wallet_subtitle">Digital membership barcodes for checkout</string>
     <string name="add_loyalty_card">Add Loyalty Card</string>
     <string name="tap_to_scan">Tap card to scan barcode</string>
-    <string name="empty_wallet_title">Your Wallet is Empty</string>
-    <string name="empty_wallet_desc">Add your Carrefour MyClub, Lulu Happiness, or Nesto INAM cards to earn points without carrying plastic cards.</string>
+    <string name="empty_wallet_title">No loyalty cards yet</string>
+    <string name="empty_wallet_desc">Add your Carrefour MyClub, Lulu Happiness, or Nesto INAM cards to scan at checkout without carrying plastic.</string>
 
     <!-- Basket Optimizer & Multi-Store Comparison -->
     <string name="basket_optimizer_title">Basket Price Optimizer</string>

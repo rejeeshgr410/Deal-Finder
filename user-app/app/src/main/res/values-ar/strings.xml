@@ -19,11 +19,11 @@
     <string name="search_placeholder">ابحث عن المنتجات، الأجهزة، الكتالوجات…</string>
 
     <!-- Loyalty Wallet -->
-    <string name="loyalty_wallet_title">محفظة بطاقات الولاء</string>
+    <string name="loyalty_wallet_title">بطاقات الولاء</string>
     <string name="loyalty_wallet_subtitle">الباركود الرقمي لعضوية المتاجر عند الكاشير</string>
     <string name="add_loyalty_card">إضافة بطاقة ولاء</string>
     <string name="tap_to_scan">اضغط على البطاقة لمسح الباركود</string>
-    <string name="empty_wallet_title">محفظتك فارغة حالياً</string>
+    <string name="empty_wallet_title">لا توجد بطاقات ولاء بعد</string>
     <string name="empty_wallet_desc">أضف بطاقة كارفور ماي كلوب، لولو هابينس، أو نستو إنعام لجمع النقاط دون الحاجة لحمل البطاقات البلاستيكية.</string>
 
     <!-- Basket Optimizer & Multi-Store Comparison -->
