@@ -1,192 +1,192 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CheckCircle, Save, AlertTriangle, Image as ImageIcon, Search, Plus, Trash2, ShieldCheck, X, Activity } from 'lucide-react';
+import { 
+  ArrowLeft, CheckCircle, Save, AlertTriangle, Image as ImageIcon, 
+  Search, Plus, Trash2, ShieldCheck, X, Activity, Sparkles, 
+  ChevronLeft, ChevronRight, Settings, RefreshCw, ZoomIn, ZoomOut, Check
+} from 'lucide-react';
 import { useCollection } from '../lib/firebase-hooks';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { createWorker } from 'tesseract.js';
-import { findBestMasterMatch, extractUnit } from '../lib/matching';
+import { findBestMasterMatch } from '../lib/matching';
 import { trackEvent } from '../lib/analytics';
+import { 
+  renderPdfToCanvases, 
+  extractProductsFromCanvas, 
+  getStoredGeminiKey, 
+  saveStoredGeminiKey, 
+  ExtractedProductItem 
+} from '../lib/flyerExtractor';
 
 export default function OcrReview() {
   const { jobId } = useParams();
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const { user, isAdminUser } = useAuth();
   const { data: flyers, update: updateFlyer } = useCollection<any>('flyers');
   const { add: addProduct } = useCollection('products');
-  
+  const { data: masterProducts } = useCollection<any>('masterProducts');
+
   const [searchQuery, setSearchQuery] = useState('');
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<ExtractedProductItem[]>([]);
   
   const [isOcrProcessing, setIsOcrProcessing] = useState(false);
   const [ocrProgress, setOcrProgress] = useState('');
+  const [engineUsed, setEngineUsed] = useState<'gemini' | 'tesseract'>('gemini');
+
+  // Multi-page state
+  const [pagesCanvases, setPagesCanvases] = useState<HTMLCanvasElement[]>([]);
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [displayedImage, setDisplayedImage] = useState<string | null>(null);
 
+  // Hover and selection interaction between document and product list
+  const [hoveredProductId, setHoveredProductId] = useState<string | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+
+  // Zoom & Pan state
+  const [zoomLevel, setZoomLevel] = useState(1.0);
+
+  // API Key Settings Modal
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [geminiApiKey, setGeminiApiKey] = useState(getStoredGeminiKey());
+
   const flyer = useMemo(() => flyers.find(f => f.id === jobId), [flyers, jobId]);
+  const imageContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (flyer && products.length === 0 && !isOcrProcessing && !displayedImage) {
-      if (flyer.imageUrl) {
-        setDisplayedImage(flyer.imageUrl);
-        startOcr(flyer.imageUrl);
-      } else if (flyer.pdfUrl) {
-        loadPdfAndRunOcr(flyer.pdfUrl);
+    if (flyer && pagesCanvases.length === 0 && !isOcrProcessing && !displayedImage) {
+      if (flyer.pdfUrl) {
+        loadPdf(flyer.pdfUrl);
+      } else if (flyer.imageUrl) {
+        loadImage(flyer.imageUrl);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flyer]);
 
-  const loadPdfAndRunOcr = async (pdfUrl: string) => {
+  const loadPdf = async (pdfUrl: string) => {
     setIsOcrProcessing(true);
-    setOcrProgress('Loading PDF...');
+    setOcrProgress('Rendering PDF pages...');
     try {
-      const pdfjsLib = await import('pdfjs-dist');
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+      const { canvases, totalPages: count } = await renderPdfToCanvases(pdfUrl, 5);
+      setPagesCanvases(canvases);
+      setTotalPages(count);
       
-      const pdf = await pdfjsLib.getDocument({ url: pdfUrl }).promise;
-      const page = await pdf.getPage(1);
-      
-      const viewport = page.getViewport({ scale: 2.0 });
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-      if (!context) throw new Error('Canvas context not found');
-      
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
-      
-      await page.render({ canvasContext: context, viewport: viewport } as any).promise;
-      const imageUrl = canvas.toDataURL('image/png');
-      setDisplayedImage(imageUrl);
-      await startOcr(imageUrl);
-    } catch (e) {
-      console.error(e);
-      setOcrProgress('Failed to process PDF.');
+      if (canvases.length > 0) {
+        const firstCanvas = canvases[0];
+        setDisplayedImage(firstCanvas.toDataURL('image/jpeg', 0.9));
+        await runExtractionOnCanvas(firstCanvas, 1);
+      }
+    } catch (e: any) {
+      console.error('Failed to render PDF:', e);
+      setOcrProgress('Could not load PDF document.');
+      showToast('Failed to parse PDF document.', 'error');
       setIsOcrProcessing(false);
     }
   };
 
-  const startOcr = async (imageUrl: string) => {
+  const loadImage = async (imageUrl: string) => {
     setIsOcrProcessing(true);
-    setOcrProgress('Initializing OCR engine...');
-    
+    setOcrProgress('Loading flyer image...');
     try {
-      const worker = await createWorker('eng', 1, {
-        logger: m => {
-          if (m.status === 'recognizing text') {
-            setOcrProgress(`Recognizing text... ${Math.round(m.progress * 100)}%`);
-          } else {
-            setOcrProgress(m.status);
-          }
-        }
-      } as any);
-      
-      const { data: { text } } = await worker.recognize(imageUrl);
-      await worker.terminate();
-      
-      parseOcrText(text);
-      
-    } catch (e) {
-      console.error(e);
-      setOcrProgress('Error running OCR.');
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = imageUrl;
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth || img.width;
+      canvas.height = img.naturalHeight || img.height;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(img, 0, 0);
+
+      setPagesCanvases([canvas]);
+      setTotalPages(1);
+      setDisplayedImage(imageUrl);
+      await runExtractionOnCanvas(canvas, 1);
+    } catch (e: any) {
+      console.error('Failed to load image:', e);
+      setOcrProgress('Could not load image.');
+      showToast('Failed to load flyer image.', 'error');
+      setIsOcrProcessing(false);
+    }
+  };
+
+  const runExtractionOnCanvas = async (canvas: HTMLCanvasElement, pageNum: number) => {
+    setIsOcrProcessing(true);
+    try {
+      const { products: extracted, engineUsed: engine } = await extractProductsFromCanvas(
+        canvas,
+        geminiApiKey,
+        pageNum,
+        msg => setOcrProgress(msg)
+      );
+
+      setEngineUsed(engine);
+
+      // Enhance with master catalog matches
+      const enhanced = extracted.map(item => {
+        const matchInfo = matchProductToMaster(item.name, undefined, item.brand, item.unitSize, item.unitType);
+        return {
+          ...item,
+          matchedId: matchInfo.masterId,
+          confidence: matchInfo.masterId ? Math.max(item.confidence, matchInfo.confidence) : item.confidence
+        };
+      });
+
+      // Append or replace depending on page
+      setProducts(prev => {
+        const otherPages = prev.filter(p => p.sourcePage !== pageNum);
+        return [...otherPages, ...enhanced];
+      });
+
+      showToast(`Extracted ${extracted.length} products with ${engine === 'gemini' ? 'Gemini AI Vision' : 'Smart Grid OCR'}!`, 'success');
+    } catch (err: any) {
+      console.error('Extraction error:', err);
+      showToast('Error during automatic product extraction.', 'error');
     } finally {
       setIsOcrProcessing(false);
     }
   };
 
-  const { data: masterProducts } = useCollection<any>('masterProducts');
+  const handlePageChange = async (newIndex: number) => {
+    if (newIndex < 0 || newIndex >= pagesCanvases.length) return;
+    setCurrentPageIndex(newIndex);
+    const canvas = pagesCanvases[newIndex];
+    setDisplayedImage(canvas.toDataURL('image/jpeg', 0.9));
+
+    // If this page hasn't been extracted yet, extract it automatically
+    const existing = products.filter(p => p.sourcePage === newIndex + 1);
+    if (existing.length === 0) {
+      await runExtractionOnCanvas(canvas, newIndex + 1);
+    }
+  };
+
+  const reRunExtraction = () => {
+    if (pagesCanvases[currentPageIndex]) {
+      runExtractionOnCanvas(pagesCanvases[currentPageIndex], currentPageIndex + 1);
+    }
+  };
 
   const matchProductToMaster = (name: string, barcode?: string, brand?: string, unitSize?: string, unitType?: string) => {
     if (!masterProducts || masterProducts.length === 0) return { masterId: null, confidence: 50 };
     const res = findBestMasterMatch({ name, barcode, brand, unitSize, unitType }, masterProducts);
     return {
       masterId: res.masterId,
-      confidence: res.masterId ? res.confidence : Math.floor(Math.random() * (99 - 70) + 70)
+      confidence: res.masterId ? res.confidence : 75
     };
   };
 
-  const parseOcrText = (text: string) => {
-    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 3);
-    const newProducts: any[] = [];
-    
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        
-        const priceMatch = line.match(/(?:AED|DHS?)?\s*(\d+\.\d{2})/i);
-        const discountMatch = line.match(/(\d{1,2})%/);
-        const qtyMatch = line.match(/(\d+)\s*(kg|g|L|ml|pcs|pack)/i);
-        
-        if (priceMatch) {
-            const words = line.split(/\s+/);
-            const prices = words.map(w => w.match(/(\d+\.\d{2})/)).filter(m => m).map(m => parseFloat(m![1]));
-            
-            let currentPrice = parseFloat(priceMatch[1]);
-            let oldPrice = 0;
-            
-            if (prices.length > 1) {
-                currentPrice = Math.min(...prices);
-                oldPrice = Math.max(...prices);
-            }
-            
-            let name = line.replace(/(?:AED|DHS?)?\s*\d+\.\d{2}/gi, '').replace(/\d{1,2}%/, '').replace(/\d+\s*(kg|g|L|ml|pcs|pack)/gi, '').trim();
-            if (name.length < 5 && i > 0) {
-                name = lines[i-1];
-            }
-            
-            const unitInfo = extractUnit(name);
-            const sizeStr = qtyMatch ? qtyMatch[1] : (unitInfo.size ? String(unitInfo.size) : '');
-            const typeStr = qtyMatch ? qtyMatch[2] : (unitInfo.type || '');
-            
-            const matchInfo = matchProductToMaster(name, undefined, undefined, sizeStr, typeStr);
-            
-            newProducts.push({
-                id: Math.random().toString(36).substring(7),
-                name: name || 'Unknown Product',
-                price: currentPrice.toFixed(2),
-                originalPrice: oldPrice > currentPrice ? oldPrice.toFixed(2) : '0.00',
-                discount: discountMatch ? `${discountMatch[1]}%` : '0%',
-                date: flyer?.validFrom ? `${flyer.validFrom} to ${flyer.validTo}` : 'Valid Now',
-                qty: qtyMatch ? qtyMatch[0] : '1',
-                unitSize: qtyMatch ? qtyMatch[1] : '',
-                unitType: qtyMatch ? qtyMatch[2] : '',
-                category: 'General',
-                confidence: matchInfo.confidence,
-                matchedId: matchInfo.masterId,
-                isEdit: false
-            });
-        }
-    }
-    
-    if (newProducts.length === 0) {
-       newProducts.push({
-         id: Math.random().toString(36).substring(7),
-         name: lines.length > 0 ? lines[0] : 'Extracted Item 1',
-         price: '0.00',
-         originalPrice: '0.00',
-         discount: '0%',
-         date: flyer?.validFrom ? `${flyer.validFrom} to ${flyer.validTo}` : 'TBD',
-         qty: '1',
-         unitSize: '',
-         unitType: '',
-         category: 'General',
-         confidence: 50,
-         matchedId: null,
-         isEdit: false
-       });
-    }
-    
-    setProducts(newProducts);
-  };
-
-  const filteredProducts = useMemo(() => {
-    return products.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
-  }, [products, searchQuery]);
-
   const toggleEdit = (id: string) => {
-    setProducts(products.map(p => p.id === id ? { ...p, isEdit: !p.isEdit } : p));
+    setProducts(products.map(p => (p.id === id ? { ...p, isEdit: !p.isEdit } : p)));
   };
 
-  const updateProduct = (id: string, field: string, value: string) => {
-    setProducts(products.map(p => p.id === id ? { ...p, [field]: value } : p));
+  const updateProduct = (id: string, field: keyof ExtractedProductItem, value: any) => {
+    setProducts(products.map(p => (p.id === id ? { ...p, [field]: value } : p)));
   };
 
   const removeProduct = (id: string) => {
@@ -194,11 +194,31 @@ export default function OcrReview() {
   };
 
   const addMissingItem = () => {
-    const newId = Math.random().toString(36).substring(7);
-    setProducts([...products, {
-      id: newId, name: 'New Item', price: '0.00', originalPrice: '0.00', discount: '0%', date: flyer?.validFrom ? `${flyer.validFrom} to ${flyer.validTo}` : 'TBD', qty: '1', unitSize: '', unitType: '', category: 'General', confidence: 100, matchedId: null, isEdit: true
-    }]);
+    const newItem: ExtractedProductItem = {
+      id: `manual-${Date.now()}`,
+      name: 'New Product Deal',
+      brand: '',
+      category: 'General',
+      currentPrice: 0.0,
+      oldPrice: 0.0,
+      unitSize: '',
+      unitType: '',
+      discount: '',
+      imageUrl: displayedImage || '',
+      confidence: 100,
+      sourcePage: currentPageIndex + 1,
+      isEdit: true
+    };
+    setProducts([newItem, ...products]);
   };
+
+  const filteredProducts = useMemo(() => {
+    return products.filter(p => 
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.category.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [products, searchQuery]);
 
   const saveDraft = async () => {
     if (jobId) {
@@ -224,247 +244,589 @@ export default function OcrReview() {
     navigate('/ocr');
   };
 
-  const { user, isAdminUser } = useAuth();
-
   const handleBulkPublish = async () => {
-    // Only status published products are visible to consumers.
     const productStatus = isAdminUser ? 'published' : 'pending_admin_review';
 
     try {
-      showToast('Publishing data to catalog...', 'info');
-      // Using Promise.all for faster bulk insert
-      await Promise.all(products.map(p => addProduct({
-        name: p.name,
-        currentPrice: parseFloat(p.price) || 0,
-        oldPrice: parseFloat(p.originalPrice) || 0,
-        category: p.category || 'General',
-        brand: 'Extracted',
-        retailerId: flyer?.retailerId || 'Unknown Retailer',
-        flyerId: flyer?.id || null,
-        unitSize: p.unitSize || '',
-        unitType: p.unitType || '',
-        validFrom: flyer?.validFrom || '',
-        validTo: flyer?.validTo || '',
-        status: productStatus,
-        masterProductId: p.matchedId || null,
-        barcode: '',
-        imageUrl: ''
-      })));
+      showToast('Publishing products with cropped catalogue images...', 'info');
       
+      // Bulk insert all products with their real cropped images
+      await Promise.all(
+        products.map(p =>
+          addProduct({
+            name: p.name,
+            currentPrice: Number(p.currentPrice) || 0,
+            oldPrice: Number(p.oldPrice) || null,
+            category: p.category || 'General',
+            brand: p.brand || 'Flyer Deal',
+            retailerId: flyer?.retailerId || 'Unknown Retailer',
+            flyerId: flyer?.id || '',
+            unitSize: p.unitSize ? parseFloat(p.unitSize) || 1.0 : 1.0,
+            unitType: p.unitType || 'unit',
+            validFrom: flyer?.validFrom || Date.now(),
+            validTo: flyer?.validTo || (Date.now() + 14 * 86400000),
+            status: productStatus,
+            masterProductId: (p as any).matchedId || '',
+            barcode: '',
+            imageUrl: p.imageUrl || '' // Real cropped catalogue image
+          })
+        )
+      );
+
       if (jobId) {
         const nextFlyerStatus = isAdminUser ? 'published' : 'pending_admin_review';
-        const actionLabel = isAdminUser ? 'Published via OCR Review' : 'Submitted for Review';
-        
+        const actionLabel = isAdminUser ? 'Published via Automated Extraction' : 'Submitted for Review';
+
         const newAuditLog = {
           status: nextFlyerStatus,
-          user: user.email,
+          user: user?.email || 'Admin',
           timestamp: new Date().toISOString(),
           action: actionLabel
         };
-        
+
         const auditLogHistory = flyer?.auditLog || [];
-        await updateFlyer(jobId, { 
+        await updateFlyer(jobId, {
           status: nextFlyerStatus,
           updatedAt: new Date().toISOString(),
           auditLog: [...auditLogHistory, newAuditLog]
         });
 
-        // Log real-time metrics
         await trackEvent('ocr_metrics', {
           flyerId: jobId,
           totalProducts: products.length,
-          baseAccuracy: 94.2,
-          correctionRate: 5.8
+          engineUsed,
+          timestamp: Date.now()
         });
       }
 
-      showToast(isAdminUser ? 'Products published successfully!' : 'Submitted for admin review', 'success');
+      showToast(isAdminUser ? `All ${products.length} products published with real images!` : 'Submitted for admin review', 'success');
       navigate(isAdminUser ? '/products' : '/flyers');
     } catch (e) {
       console.error(e);
-      showToast('Failed to publish data. Please check your network.', 'error');
+      showToast('Failed to publish products. Please check connection.', 'error');
     }
   };
 
+  const handleSaveApiKey = () => {
+    saveStoredGeminiKey(geminiApiKey);
+    setShowSettingsModal(false);
+    showToast('Gemini API key saved! Future extractions will use Gemini 2.5 Flash.', 'success');
+  };
+
   if (!flyer) {
-    return <div className="p-12 text-center">Loading flyer...</div>;
+    return (
+      <div className="flex-1 flex items-center justify-center p-12">
+        <Activity className="w-8 h-8 text-indigo-600 animate-spin mr-3" />
+        <span className="text-slate-600 font-semibold">Loading flyer data...</span>
+      </div>
+    );
   }
+
+  // Active products on current page for bounding box overlay
+  const currentPageProducts = products.filter(p => p.sourcePage === currentPageIndex + 1);
 
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-50 -m-6 p-6">
-      <div className="flex items-center justify-between mb-4">
-         <div className="flex items-center gap-4">
-            <button onClick={() => navigate('/ocr')} className="p-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">
-              <ArrowLeft className="w-5 h-5 text-slate-600" />
-            </button>
-            <div>
-              <h1 className="text-xl font-bold text-slate-900">Job Review: {flyer.title}</h1>
-              <p className="text-xs text-slate-500">Extracted {products.length} items</p>
-            </div>
-         </div>
-         <div className="flex items-center gap-3">
-            <button onClick={saveDraft} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold text-xs uppercase tracking-wide hover:bg-slate-50">
-              Save Draft
-            </button>
-            <button onClick={handleBulkPublish} className={`px-4 py-2 text-white rounded-xl font-bold text-xs uppercase tracking-wide flex items-center gap-2 hover:opacity-90 disabled:opacity-50 ${isAdminUser ? 'bg-green-600' : 'bg-indigo-600'}`} disabled={isOcrProcessing || products.length === 0}>
-              <CheckCircle className="w-4 h-4" /> {isAdminUser ? `Bulk Publish (${products.length})` : `Submit for Review (${products.length})`}
-            </button>
-         </div>
-      </div>
-
-      <div className="flex-1 flex gap-6 min-h-0">
-        {/* Left: Flyer Image View */}
-        <div className="flex-1 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-            <h3 className="font-bold text-sm text-slate-700 flex items-center gap-2">
-               <ImageIcon className="w-4 h-4" /> Document Source
-            </h3>
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+        <div className="flex items-center gap-4">
+          <button onClick={() => navigate('/ocr')} className="p-2.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors shadow-xs">
+            <ArrowLeft className="w-5 h-5 text-slate-700" />
+          </button>
+          <div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-500 bg-slate-200 px-2 py-0.5 rounded">{flyer.pdfUrl ? 'PDF' : 'IMAGE'}</span>
+              <h1 className="text-xl font-bold text-slate-900">{flyer.title || 'Flyer Extraction'}</h1>
+              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${
+                engineUsed === 'gemini' ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800'
+              }`}>
+                <Sparkles className="w-3 h-3" /> {engineUsed === 'gemini' ? 'Gemini Flash AI' : 'Smart Grid OCR'}
+              </span>
             </div>
-          </div>
-          <div className="flex-1 bg-slate-100 relative overflow-auto flex items-center justify-center p-4">
-             {displayedImage ? (
-                <img src={displayedImage} alt="Flyer Page" className="max-w-full h-auto shadow-md border border-slate-200 bg-white" crossOrigin="anonymous"/>
-             ) : (
-                <div className="text-slate-400 font-bold uppercase tracking-wider text-sm mt-8 opacity-50 flex items-center gap-2">
-                  <Activity className="w-5 h-5 animate-spin" />
-                  Loading Document...
-                </div>
-             )}
+            <p className="text-xs text-slate-500 mt-0.5">
+              {flyer.retailerId || 'Unknown Store'} • {products.length} products automatically captured with images
+            </p>
           </div>
         </div>
 
-        {/* Right: Extracted Products */}
-        <div className="w-[600px] flex flex-col flex-shrink-0 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden min-h-0">
-           <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50">
-             <div className="flex items-center justify-between mb-3">
-               <h3 className="font-bold text-sm text-slate-700 flex items-center gap-2">
-                 <ShieldCheck className="w-4 h-4 text-green-600" /> Extracted Data
-               </h3>
-               {isOcrProcessing && (
-                 <span className="text-xs font-bold text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded uppercase tracking-wide animate-pulse">
-                   {ocrProgress}
-                 </span>
-               )}
-             </div>
-             
-             <div className="relative">
-               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-               <input 
-                 type="text" 
-                 value={searchQuery}
-                 onChange={(e) => setSearchQuery(e.target.value)}
-                 placeholder="Search extracted items..." 
-                 className="w-full pl-9 pr-4 py-1.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-               />
-             </div>
-           </div>
+        <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+          <button
+            onClick={() => setShowSettingsModal(true)}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl font-semibold text-xs hover:bg-slate-50 shadow-xs"
+            title="Configure Free Gemini AI Key"
+          >
+            <Settings className="w-3.5 h-3.5 text-slate-500" />
+            AI Settings
+          </button>
 
-           <div className="flex-1 overflow-y-auto p-4 space-y-3">
-             {filteredProducts.map((p) => (
-                <div key={p.id} className={`p-4 rounded-2xl border ${p.confidence < 80 ? 'border-orange-200 bg-orange-50/30' : 'border-slate-200 bg-white'} transition-colors relative group`}>
-                   
-                   {p.isEdit ? (
+          <button
+            onClick={reRunExtraction}
+            disabled={isOcrProcessing}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl font-semibold text-xs hover:bg-slate-50 shadow-xs disabled:opacity-50"
+            title="Re-extract this page"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isOcrProcessing ? 'animate-spin' : ''}`} />
+            Re-Extract
+          </button>
+
+          <button
+            onClick={saveDraft}
+            className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold text-xs uppercase tracking-wide hover:bg-slate-50 shadow-xs"
+          >
+            Save Draft
+          </button>
+
+          <button
+            onClick={handleBulkPublish}
+            disabled={isOcrProcessing || products.length === 0}
+            className={`px-5 py-2 text-white rounded-xl font-bold text-xs uppercase tracking-wide flex items-center gap-2 shadow-sm transition-all hover:opacity-95 disabled:opacity-50 ${
+              isAdminUser ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-indigo-600 hover:bg-indigo-700'
+            }`}
+          >
+            <CheckCircle className="w-4 h-4" />
+            {isAdminUser ? `Publish All (${products.length})` : `Submit for Review (${products.length})`}
+          </button>
+        </div>
+      </div>
+
+      {/* Main Workspace: Document on Left, Captured Products on Right */}
+      <div className="flex-1 flex flex-col lg:flex-row gap-6 min-h-0">
+        
+        {/* Left Column: Document Viewer with Interactive Bounding Boxes */}
+        <div className="flex-1 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-0">
+          <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ImageIcon className="w-4 h-4 text-indigo-600" />
+              <span className="font-bold text-sm text-slate-800">Catalogue Page Source</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {totalPages > 1 && (
+                <div className="flex items-center bg-white border border-slate-200 rounded-lg shadow-2xs mr-2">
+                  <button
+                    onClick={() => handlePageChange(currentPageIndex - 1)}
+                    disabled={currentPageIndex === 0}
+                    className="p-1 text-slate-500 hover:text-slate-800 disabled:opacity-30"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="px-2 text-xs font-bold text-slate-700">
+                    Page {currentPageIndex + 1} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => handlePageChange(currentPageIndex + 1)}
+                    disabled={currentPageIndex >= pagesCanvases.length - 1}
+                    className="p-1 text-slate-500 hover:text-slate-800 disabled:opacity-30"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              <div className="flex items-center bg-white border border-slate-200 rounded-lg shadow-2xs">
+                <button
+                  onClick={() => setZoomLevel(prev => Math.max(0.6, prev - 0.2))}
+                  className="p-1 text-slate-500 hover:text-slate-800"
+                  title="Zoom Out"
+                >
+                  <ZoomOut className="w-4 h-4" />
+                </button>
+                <span className="px-2 text-[11px] font-bold text-slate-600">
+                  {Math.round(zoomLevel * 100)}%
+                </span>
+                <button
+                  onClick={() => setZoomLevel(prev => Math.min(2.0, prev + 0.2))}
+                  className="p-1 text-slate-500 hover:text-slate-800"
+                  title="Zoom In"
+                >
+                  <ZoomIn className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div
+            ref={imageContainerRef}
+            className="flex-1 bg-slate-100 relative overflow-auto flex items-center justify-center p-4 select-none"
+          >
+            {displayedImage ? (
+              <div
+                className="relative inline-block shadow-lg border border-slate-300 rounded-sm bg-white transition-transform duration-150 origin-top"
+                style={{ transform: `scale(${zoomLevel})` }}
+              >
+                <img
+                  src={displayedImage}
+                  alt="Flyer Page"
+                  className="max-w-none w-auto h-auto block max-h-[75vh]"
+                  crossOrigin="anonymous"
+                />
+
+                {/* Interactive Bounding Boxes Overlay */}
+                {currentPageProducts.map(p => {
+                  if (!p.box2d) return null;
+                  const [ymin, xmin, ymax, xmax] = p.box2d;
+                  const isHovered = hoveredProductId === p.id;
+                  const isSelected = selectedProductId === p.id;
+
+                  return (
+                    <div
+                      key={p.id}
+                      onClick={() => setSelectedProductId(p.id)}
+                      onMouseEnter={() => setHoveredProductId(p.id)}
+                      onMouseLeave={() => setHoveredProductId(null)}
+                      style={{
+                        top: `${ymin / 10}%`,
+                        left: `${xmin / 10}%`,
+                        width: `${(xmax - xmin) / 10}%`,
+                        height: `${(ymax - ymin) / 10}%`
+                      }}
+                      className={`absolute cursor-pointer transition-all duration-150 rounded-sm flex flex-col justify-between p-1 ${
+                        isSelected || isHovered
+                          ? 'border-2 border-emerald-500 bg-emerald-500/20 shadow-md ring-2 ring-emerald-400/50 z-20'
+                          : 'border border-indigo-400/80 bg-indigo-500/10 hover:border-emerald-400 hover:bg-emerald-500/15 z-10'
+                      }`}
+                    >
+                      <span className="self-start text-[9px] font-bold bg-slate-900/90 text-white px-1 py-0.5 rounded shadow-xs truncate max-w-full">
+                        AED {Number(p.currentPrice).toFixed(2)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-slate-400 font-bold uppercase tracking-wider text-sm flex items-center gap-2">
+                <Activity className="w-5 h-5 animate-spin text-indigo-500" />
+                Rendering Document Page...
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Column: Captured Product Deals with Real Cropped Thumbnails */}
+        <div className="w-full lg:w-[620px] flex flex-col flex-shrink-0 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden min-h-0">
+          <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/70">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                <h3 className="font-bold text-sm text-slate-800">
+                  Captured Products ({filteredProducts.length})
+                </h3>
+              </div>
+              
+              {isOcrProcessing && (
+                <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-full">
+                  <Activity className="w-3.5 h-3.5 text-indigo-600 animate-spin" />
+                  <span className="text-[11px] font-bold text-indigo-700">{ocrProgress}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search products by title, brand, or category..."
+                className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 outline-none shadow-2xs"
+              />
+            </div>
+          </div>
+
+          {/* Product Items List */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {filteredProducts.length === 0 ? (
+              <div className="p-8 text-center text-slate-500 text-xs">
+                No matching products found. Click "Add Missing Item" to create one manually.
+              </div>
+            ) : (
+              filteredProducts.map(p => {
+                const isHovered = hoveredProductId === p.id;
+                const isSelected = selectedProductId === p.id;
+
+                return (
+                  <div
+                    key={p.id}
+                    onMouseEnter={() => setHoveredProductId(p.id)}
+                    onMouseLeave={() => setHoveredProductId(null)}
+                    onClick={() => setSelectedProductId(p.id)}
+                    className={`p-4 rounded-2xl border transition-all duration-150 relative group ${
+                      isSelected
+                        ? 'border-emerald-500 bg-emerald-50/40 shadow-sm ring-1 ring-emerald-400/40'
+                        : isHovered
+                        ? 'border-indigo-300 bg-indigo-50/30 shadow-xs'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}
+                  >
+                    {p.isEdit ? (
+                      /* Inline Edit Form */
                       <div className="space-y-3">
-                        <div className="flex items-center justify-between mb-2">
-                           <span className="text-xs font-bold text-indigo-600 uppercase tracking-widest">Edit Mode</span>
-                           <button onClick={() => toggleEdit(p.id)} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4"/></button>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest">
+                            Editing Product
+                          </span>
+                          <button onClick={() => toggleEdit(p.id)} className="text-slate-400 hover:text-slate-600">
+                            <X className="w-4 h-4" />
+                          </button>
                         </div>
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-500">Product Name</label>
-                          <input type="text" value={p.name} onChange={e => updateProduct(p.id, 'name', e.target.value)} className="w-full text-sm font-semibold border-b border-slate-200 focus:border-indigo-500 outline-none py-1 bg-transparent" />
+
+                        <div className="flex gap-4 items-start">
+                          {/* Image preview */}
+                          {p.imageUrl && (
+                            <img
+                              src={p.imageUrl}
+                              alt="Cropped Product"
+                              className="w-20 h-20 object-contain rounded-xl border border-slate-200 bg-white p-1 shrink-0"
+                            />
+                          )}
+                          <div className="flex-1 space-y-2">
+                            <div>
+                              <label className="text-[9px] uppercase font-bold text-slate-400">Title</label>
+                              <input
+                                type="text"
+                                value={p.name}
+                                onChange={e => updateProduct(p.id, 'name', e.target.value)}
+                                className="w-full text-xs font-bold border-b border-slate-200 focus:border-indigo-500 outline-none py-0.5 bg-transparent"
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="text-[9px] uppercase font-bold text-slate-400">Brand</label>
+                                <input
+                                  type="text"
+                                  value={p.brand}
+                                  onChange={e => updateProduct(p.id, 'brand', e.target.value)}
+                                  className="w-full text-xs border-b border-slate-200 focus:border-indigo-500 outline-none py-0.5 bg-transparent"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[9px] uppercase font-bold text-slate-400">Category</label>
+                                <input
+                                  type="text"
+                                  value={p.category}
+                                  onChange={e => updateProduct(p.id, 'category', e.target.value)}
+                                  className="w-full text-xs border-b border-slate-200 focus:border-indigo-500 outline-none py-0.5 bg-transparent"
+                                />
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <div className="grid grid-cols-4 gap-3">
-                           <div>
-                              <label className="text-[10px] uppercase font-bold text-slate-500">Price (AED)</label>
-                              <input type="text" value={p.price} onChange={e => updateProduct(p.id, 'price', e.target.value)} className="w-full text-sm border-b border-slate-200 focus:border-indigo-500 outline-none py-1 bg-transparent" />
-                           </div>
-                           <div>
-                              <label className="text-[10px] uppercase font-bold text-slate-500">Old Price</label>
-                              <input type="text" value={p.originalPrice} onChange={e => updateProduct(p.id, 'originalPrice', e.target.value)} className="w-full text-sm border-b border-slate-200 focus:border-indigo-500 outline-none py-1 bg-transparent" />
-                           </div>
-                           <div>
-                              <label className="text-[10px] uppercase font-bold text-slate-500">Discount</label>
-                              <input type="text" value={p.discount} onChange={e => updateProduct(p.id, 'discount', e.target.value)} className="w-full text-sm border-b border-slate-200 focus:border-indigo-500 outline-none py-1 bg-transparent" />
-                           </div>
-                           <div>
-                              <label className="text-[10px] uppercase font-bold text-slate-500">Quantity</label>
-                              <input type="text" value={p.qty} onChange={e => updateProduct(p.id, 'qty', e.target.value)} className="w-full text-sm border-b border-slate-200 focus:border-indigo-500 outline-none py-1 bg-transparent" />
-                           </div>
+
+                        <div className="grid grid-cols-4 gap-2 pt-2 border-t border-slate-100">
+                          <div>
+                            <label className="text-[9px] uppercase font-bold text-slate-400">Price (AED)</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={p.currentPrice}
+                              onChange={e => updateProduct(p.id, 'currentPrice', parseFloat(e.target.value) || 0)}
+                              className="w-full text-xs font-bold text-emerald-600 border-b border-slate-200 focus:border-emerald-500 outline-none py-0.5 bg-transparent"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] uppercase font-bold text-slate-400">Old Price</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={p.oldPrice || ''}
+                              onChange={e => updateProduct(p.id, 'oldPrice', parseFloat(e.target.value) || 0)}
+                              className="w-full text-xs text-slate-400 line-through border-b border-slate-200 focus:border-slate-500 outline-none py-0.5 bg-transparent"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] uppercase font-bold text-slate-400">Size</label>
+                            <input
+                              type="text"
+                              value={p.unitSize}
+                              onChange={e => updateProduct(p.id, 'unitSize', e.target.value)}
+                              className="w-full text-xs border-b border-slate-200 focus:border-indigo-500 outline-none py-0.5 bg-transparent"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] uppercase font-bold text-slate-400">Unit Type</label>
+                            <input
+                              type="text"
+                              value={p.unitType}
+                              onChange={e => updateProduct(p.id, 'unitType', e.target.value)}
+                              className="w-full text-xs border-b border-slate-200 focus:border-indigo-500 outline-none py-0.5 bg-transparent"
+                            />
+                          </div>
                         </div>
-                        <div>
-                           <label className="text-[10px] uppercase font-bold text-slate-500">Validity Date</label>
-                           <input type="text" value={p.date} onChange={e => updateProduct(p.id, 'date', e.target.value)} className="w-full text-sm border-b border-slate-200 focus:border-indigo-500 outline-none py-1 bg-transparent" />
-                        </div>
-                        <div className="mt-2 flex justify-end">
-                           <button onClick={() => toggleEdit(p.id)} className="px-3 py-1 bg-indigo-600 text-white rounded text-xs font-bold">Done</button>
+
+                        <div className="flex justify-end pt-1">
+                          <button
+                            onClick={() => toggleEdit(p.id)}
+                            className="px-3 py-1 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 shadow-2xs"
+                          >
+                            Done
+                          </button>
                         </div>
                       </div>
-                   ) : (
-                     <>
-                        <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                           <button onClick={() => toggleEdit(p.id)} className="p-1.5 bg-white text-slate-500 shadow-sm border border-slate-200 rounded-lg hover:text-indigo-600"><Save className="w-3.5 h-3.5"/></button>
-                           <button onClick={() => removeProduct(p.id)} className="p-1.5 bg-white text-slate-500 shadow-sm border border-slate-200 rounded-lg hover:text-red-500"><Trash2 className="w-3.5 h-3.5"/></button>
+                    ) : (
+                      /* Display Mode with Real Cropped Product Image */
+                      <div className="flex items-start gap-3.5">
+                        {/* Real Cropped Image Thumbnail */}
+                        <div className="relative shrink-0">
+                          {p.imageUrl ? (
+                            <img
+                              src={p.imageUrl}
+                              alt={p.name}
+                              className="w-20 h-20 object-contain rounded-xl border border-slate-200 bg-white p-1 shadow-2xs"
+                            />
+                          ) : (
+                            <div className="w-20 h-20 bg-slate-100 rounded-xl flex items-center justify-center text-slate-300">
+                              <ImageIcon className="w-6 h-6" />
+                            </div>
+                          )}
+                          <span className="absolute bottom-1 right-1 text-[9px] font-bold bg-slate-900/80 text-white px-1 rounded">
+                            P{p.sourcePage}
+                          </span>
                         </div>
 
-                        <div className="flex items-start justify-between mb-1 pr-12">
-                           <h4 className="font-bold text-sm text-slate-900">{p.name}</h4>
-                        </div>
+                        {/* Product Details */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <div>
+                              {p.brand && (
+                                <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wide">
+                                  {p.brand} • {p.category}
+                                </span>
+                              )}
+                              <h4 className="font-bold text-xs text-slate-900 leading-tight line-clamp-2">
+                                {p.name}
+                              </h4>
+                            </div>
 
-                        <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-slate-600 mb-3">
-                           <div className="flex items-center gap-1">
-                              <span className="text-slate-400">Offer:</span>
-                              <span className="text-green-600 font-bold">{p.price}</span>
-                           </div>
-                           <div className="flex items-center gap-1">
-                              <span className="text-slate-400">Was:</span>
-                              <span className="line-through">{p.originalPrice}</span>
-                           </div>
-                           <div className="flex items-center gap-1">
-                              <span className="text-slate-400">Discount:</span>
-                              <span className="text-indigo-600 font-bold">{p.discount}</span>
-                           </div>
-                           <div className="flex items-center gap-1">
-                              <span className="text-slate-400">Qty:</span>
-                              <span>{p.qty}</span>
-                           </div>
-                           <div className="flex items-center gap-1">
-                              <span className="text-slate-400">Valid:</span>
-                              <span>{p.date}</span>
-                           </div>
-                        </div>
+                            {/* Actions */}
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  toggleEdit(p.id);
+                                }}
+                                className="p-1 bg-white text-slate-500 shadow-xs border border-slate-200 rounded-lg hover:text-indigo-600"
+                                title="Edit Details"
+                              >
+                                <Save className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  removeProduct(p.id);
+                                }}
+                                className="p-1 bg-white text-slate-500 shadow-xs border border-slate-200 rounded-lg hover:text-red-500"
+                                title="Remove Item"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
 
-                        <div className="flex items-center gap-2">
-                           {p.confidence >= 80 ? (
-                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-green-100 text-green-700">
-                               <CheckCircle className="w-3 h-3"/> {p.confidence}% Confident
-                             </span>
-                           ) : (
-                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-orange-100 text-orange-700">
-                               <AlertTriangle className="w-3 h-3"/> Low Confidence ({p.confidence}%)
-                             </span>
-                           )}
-
-                           {p.matchedId && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-indigo-100 text-indigo-700">
-                                <ShieldCheck className="w-3 h-3"/> Auto-Matched DB
+                          <div className="flex flex-wrap items-baseline gap-3 my-1.5">
+                            <span className="text-sm font-bold text-emerald-600">
+                              AED {Number(p.currentPrice).toFixed(2)}
+                            </span>
+                            {p.oldPrice && p.oldPrice > p.currentPrice && (
+                              <span className="text-xs text-slate-400 line-through">
+                                AED {Number(p.oldPrice).toFixed(2)}
                               </span>
-                           )}
+                            )}
+                            {p.unitSize && (
+                              <span className="text-[11px] font-medium text-slate-500">
+                                {p.unitSize} {p.unitType}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 mt-2">
+                            {p.confidence >= 80 ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800">
+                                <CheckCircle className="w-2.5 h-2.5" /> Auto-Captured
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800">
+                                <AlertTriangle className="w-2.5 h-2.5" /> Review Price
+                              </span>
+                            )}
+
+                            {(p as any).matchedId && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-indigo-100 text-indigo-800">
+                                <ShieldCheck className="w-2.5 h-2.5" /> Master Match
+                              </span>
+                            )}
+                          </div>
                         </div>
-                     </>
-                   )}
-                </div>
-             ))}
-             
-             <button onClick={addMissingItem} className="w-full py-3 border-2 border-dashed border-slate-200 bg-slate-50 rounded-2xl flex items-center justify-center gap-2 text-sm font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors">
-               <Plus className="w-4 h-4"/> Add Missing Item
-             </button>
-             
-           </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+
+            <button
+              onClick={addMissingItem}
+              className="w-full py-3 border-2 border-dashed border-slate-200 bg-slate-50/50 rounded-2xl flex items-center justify-center gap-2 text-xs font-bold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Add Missing Product
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Free Gemini AI Settings Modal */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-indigo-600" />
+                <h3 className="font-bold text-base text-slate-900">AI Extraction Configuration</h3>
+              </div>
+              <button onClick={() => setShowSettingsModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+              Google AI Studio provides <strong>Gemini 2.5 Flash 100% free</strong> with up to 1,500 requests/day.
+              Entering your free key allows pixel-perfect vision cropping and bilingual Arabic/English product extraction.
+            </p>
+
+            <div className="space-y-3 mb-5">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                  Google AI Studio Free API Key
+                </label>
+                <input
+                  type="password"
+                  value={geminiApiKey}
+                  onChange={e => setGeminiApiKey(e.target.value)}
+                  placeholder="AIzaSy..."
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+
+              <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-100 text-[11px] text-indigo-900">
+                <strong>No API Key?</strong> The app will automatically run using <strong>Smart Grid Client-Side OCR</strong> for free in your browser with zero setup required.
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2.5">
+              <button
+                onClick={() => setShowSettingsModal(false)}
+                className="px-4 py-2 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveApiKey}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 flex items-center gap-1.5 shadow-2xs"
+              >
+                <Check className="w-4 h-4" /> Save Configuration
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
