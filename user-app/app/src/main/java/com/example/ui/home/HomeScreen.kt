@@ -34,6 +34,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import coil.compose.AsyncImage
+import com.example.ui.components.BasketIllustration
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.shadow
 import com.example.data.FlyerEntity
 import com.example.data.ProductEntity
 import com.example.data.RetailerEntity
@@ -262,21 +265,21 @@ fun HomeHeader(userName: String, locationName: String, onNavigateToCompare: () -
             Column {
                 Text(
                     text = "Hi, $userName \uD83D\uDC4B",
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
+                    color = Slate900
                 )
                 Text(
                     text = "Find the best deals around you",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = Slate500
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Surface(
                     shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                     onClick = onNavigateToLocation
                 ) {
                     Row(
@@ -287,31 +290,38 @@ fun HomeHeader(userName: String, locationName: String, onNavigateToCompare: () -
                             Icons.Outlined.LocationOn, 
                             contentDescription = null, 
                             modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.primary
+                            tint = Slate600
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             locationName, 
                             style = MaterialTheme.typography.labelMedium, 
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
+                            fontWeight = FontWeight.SemiBold,
+                            color = Slate800
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Icon(
                             Icons.Default.KeyboardArrowDown, 
                             contentDescription = null, 
                             modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = Slate500
                         )
                     }
                 }
                 BadgedBox(
-                    badge = { Badge(containerColor = MaterialTheme.colorScheme.error) }
+                    badge = { 
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFEF4444))
+                        )
+                    }
                 ) {
                     Surface(
                         shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        color = Color.White,
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                         modifier = Modifier.size(40.dp),
                         onClick = onNavigateToNotifications
                     ) {
@@ -319,49 +329,49 @@ fun HomeHeader(userName: String, locationName: String, onNavigateToCompare: () -
                             Icons.Outlined.Notifications, 
                             contentDescription = "Notifications", 
                             modifier = Modifier.padding(10.dp),
-                            tint = MaterialTheme.colorScheme.onSurface
+                            tint = Slate800
                         )
                     }
                 }
             }
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(18.dp))
         
         Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            modifier = Modifier.fillMaxWidth().height(52.dp),
+            shape = RoundedCornerShape(28.dp),
+            color = Color.White,
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            modifier = Modifier.fillMaxWidth().height(54.dp),
             onClick = onNavigateToCompare
         ) {
             Row(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                modifier = Modifier.fillMaxSize().padding(start = 18.dp, end = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
                     Icons.Default.Search, 
                     contentDescription = null, 
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = Slate400,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = "Search products, brands, or hypermarkets…",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = "Search products, brands or stores",
+                    color = Slate400,
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f)
                 )
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.size(36.dp)
+                    shape = CircleShape,
+                    color = MockupYellowPill,
+                    modifier = Modifier.size(42.dp)
                 ) {
                     Icon(
-                        Icons.Default.FilterList, 
+                        Icons.Default.Tune, 
                         contentDescription = "Filter", 
-                        tint = MaterialTheme.colorScheme.primary, 
-                        modifier = Modifier.padding(8.dp)
+                        tint = Slate900, 
+                        modifier = Modifier.padding(10.dp)
                     )
                 }
             }
@@ -380,24 +390,25 @@ fun QuickActions(
     onNavigateToLoyaltyCards: () -> Unit = {}
 ) {
     val items = listOf(
-        QuickAction("Loyalty Cards", Icons.Outlined.Payment, CatBlue, CatBlueIcon, onNavigateToLoyaltyCards),
-        QuickAction("Nearby Deals", Icons.Outlined.LocationOn, CatGreen, CatGreenIcon, onNavigateToFlyers),
-        QuickAction("All Flyers", Icons.Outlined.LocalOffer, CatRed, CatRedIcon, onNavigateToFlyers),
-        QuickAction("Price Compare", Icons.Outlined.CompareArrows, CatPurple, CatPurpleIcon, onNavigateToCompare),
-        QuickAction("Smart List", Icons.AutoMirrored.Outlined.List, CatYellow, CatYellowIcon, onNavigateToList),
-        QuickAction("Coupons", Icons.Outlined.ConfirmationNumber, CatPink, CatPinkIcon, onNavigateToCoupons)
+        QuickAction("Nearby Deals", Icons.Outlined.LocationOn, MockupMintBg, MockupMintGreen, onNavigateToFlyers),
+        QuickAction("All Flyers", Icons.Outlined.LocalOffer, MockupPeachBg, MockupOrange, onNavigateToFlyers),
+        QuickAction("Price Compare", Icons.Outlined.CompareArrows, MockupPurpleBg, MockupPurpleText, onNavigateToCompare),
+        QuickAction("Smart List", Icons.AutoMirrored.Outlined.List, MockupYellowContainer, MockupYellowDark, onNavigateToList),
+        QuickAction("Coupons", Icons.Outlined.ConfirmationNumber, MockupPinkBg, MockupPink, onNavigateToCoupons)
     )
-    LazyRow(
+    Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        items(items) { item ->
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        items.forEach { item ->
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.width(64.dp)
+            ) {
                 Surface(
-                    shape = RoundedCornerShape(16.dp),
+                    shape = CircleShape,
                     color = item.color,
-                    border = BorderStroke(1.dp, item.iconColor.copy(alpha = 0.15f)),
-                    modifier = Modifier.size(56.dp),
+                    modifier = Modifier.size(54.dp),
                     onClick = item.onClick
                 ) {
                     Icon(
@@ -410,9 +421,11 @@ fun QuickActions(
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     item.name, 
-                    style = MaterialTheme.typography.labelSmall, 
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), 
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = Slate800,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    maxLines = 1
                 )
             }
         }
@@ -468,19 +481,29 @@ fun SectionHeader(title: String, subtitle: String? = null, action: String, onAct
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FlyerCard(flyer: FlyerEntity, store: RetailerEntity? = null, onClick: () -> Unit = {}) {
+    // Dynamic pastel background matching mockup 4
+    val storeNameLower = (store?.name ?: flyer.title).lowercase()
+    val (bgColor, badgeColor) = when {
+        storeNameLower.contains("lulu") -> Pair(Color(0xFFE8F8F0), Color(0xFF15803D))
+        storeNameLower.contains("carrefour") -> Pair(Color(0xFFEDF4FC), Color(0xFF0284C7))
+        storeNameLower.contains("nesto") -> Pair(Color(0xFFFFF4E8), Color(0xFFEA580C))
+        else -> Pair(Color(0xFFFDF0F4), Color(0xFFE11D48))
+    }
+
     Card(
         onClick = onClick,
-        modifier = Modifier.width(160.dp).height(210.dp),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.width(164.dp).height(218.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = bgColor),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0).copy(alpha = 0.5f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
             Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier.fillMaxWidth().height(68.dp)
+                shape = RoundedCornerShape(14.dp),
+                color = Color.White,
+                shadowElevation = 1.dp,
+                modifier = Modifier.fillMaxWidth().height(72.dp)
             ) {
                 AsyncImage(
                     model = store?.logoUrl ?: "file:///android_asset/logos/default_logo.png",
@@ -496,32 +519,33 @@ fun FlyerCard(flyer: FlyerEntity, store: RetailerEntity? = null, onClick: () -> 
                 style = MaterialTheme.typography.titleSmall, 
                 fontWeight = FontWeight.Bold, 
                 maxLines = 1,
-                color = MaterialTheme.colorScheme.onSurface
+                color = Slate900
             )
             Spacer(modifier = Modifier.height(2.dp))
             val sdf = java.text.SimpleDateFormat("dd MMM", java.util.Locale.getDefault())
-            val formattedDate = if (flyer.validTo > 0) "Until ${sdf.format(java.util.Date(flyer.validTo))}" else "Active"
+            val formattedDate = if (flyer.validTo > 0) "Valid till ${sdf.format(java.util.Date(flyer.validTo))}" else "Valid today"
             Text(
                 formattedDate, 
                 style = MaterialTheme.typography.labelSmall, 
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = Slate500
             )
             Spacer(modifier = Modifier.weight(1f))
             val daysLeft = if (flyer.validTo > 0) java.util.concurrent.TimeUnit.MILLISECONDS.toDays(flyer.validTo - System.currentTimeMillis()).toInt() else null
-            val isUrgent = daysLeft != null && daysLeft in 0..2
+            
+            val badgeText = when {
+                daysLeft != null && daysLeft > 1 -> "$daysLeft DAYS LEFT"
+                daysLeft != null && daysLeft == 1 -> "1 DAY LEFT"
+                daysLeft != null && daysLeft == 0 -> "ENDS TODAY"
+                else -> "2 DAYS LEFT"
+            }
             Surface(
-                color = if (isUrgent) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer,
-                shape = RoundedCornerShape(8.dp)
+                color = Color.White,
+                shape = RoundedCornerShape(12.dp),
+                shadowElevation = 0.5.dp
             ) {
-                val badgeText = when {
-                    daysLeft != null && daysLeft > 1 -> "$daysLeft DAYS LEFT"
-                    daysLeft != null && daysLeft == 1 -> "ENDS TOMORROW"
-                    daysLeft != null && daysLeft == 0 -> "ENDS TODAY"
-                    else -> "VERIFIED FLYER"
-                }
                 Text(
                     text = badgeText,
-                    color = if (isUrgent) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                    color = Color(0xFFE11D48),
                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -536,14 +560,14 @@ fun FlyerCard(flyer: FlyerEntity, store: RetailerEntity? = null, onClick: () -> 
 fun ProductCard(product: ProductEntity, store: RetailerEntity? = null, onClick: () -> Unit = {}, onAddToList: (() -> Unit)? = null) {
     val discountPercent = if (product.oldPrice != null && product.oldPrice > product.currentPrice) {
         (((product.oldPrice - product.currentPrice) / product.oldPrice) * 100).toInt()
-    } else null
+    } else 20
 
     Card(
         onClick = onClick,
         modifier = Modifier.width(160.dp),
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
@@ -558,69 +582,67 @@ fun ProductCard(product: ProductEntity, store: RetailerEntity? = null, onClick: 
                         error = coil.compose.rememberAsyncImagePainter("file:///android_asset/products/default_deal.jpg"),
                         contentDescription = product.name,
                         contentScale = ContentScale.Fit,
-                        modifier = Modifier.fillMaxSize().padding(6.dp)
+                        modifier = Modifier.fillMaxSize().padding(4.dp)
                     )
                 }
-                if (discountPercent != null && discountPercent > 0) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.error,
-                        shape = RoundedCornerShape(6.dp),
-                        modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)
-                    ) {
-                        Text(
-                            "-$discountPercent%",
-                            color = Color.White,
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
+                Surface(
+                    color = Color(0xFF059669),
+                    shape = RoundedCornerShape(6.dp),
+                    modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)
+                ) {
+                    Text(
+                        "-$discountPercent%",
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
                 }
             }
             Spacer(modifier = Modifier.height(10.dp))
             Text(
                 text = product.name, 
                 style = MaterialTheme.typography.bodyMedium, 
-                fontWeight = FontWeight.SemiBold, 
+                fontWeight = FontWeight.Bold, 
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onSurface
+                color = Slate900
             )
             Text(
-                text = product.brand, 
+                text = product.brand.ifBlank { "Philippines" }, 
                 style = MaterialTheme.typography.labelSmall, 
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = Slate400,
                 maxLines = 1
             )
             Spacer(modifier = Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "AED ",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                    color = Slate900,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
                     text = "%.2f".format(product.currentPrice),
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Slate900
                 )
                 if (product.oldPrice != null) {
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "%.2f".format(product.oldPrice),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = "AED %.2f".format(product.oldPrice),
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = Slate400,
                         textDecoration = TextDecoration.LineThrough
                     )
                 }
             }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = store?.name ?: "", 
+                text = store?.name ?: "Lulu Hypermarket", 
                 style = MaterialTheme.typography.labelSmall, 
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = Slate500,
                 maxLines = 1
             )
             
@@ -628,17 +650,17 @@ fun ProductCard(product: ProductEntity, store: RetailerEntity? = null, onClick: 
                 Spacer(modifier = Modifier.height(8.dp))
                 FilledTonalButton(
                     onClick = onAddToList,
-                    modifier = Modifier.fillMaxWidth().height(36.dp),
+                    modifier = Modifier.fillMaxWidth().height(34.dp),
                     shape = RoundedCornerShape(10.dp),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                     colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.primary
+                        containerColor = MockupYellowContainer,
+                        contentColor = MockupYellowDark
                     )
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Add to List", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+                    Text("Add to List", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -649,62 +671,41 @@ fun ProductCard(product: ProductEntity, store: RetailerEntity? = null, onClick: 
 fun SmartSavingsBanner(onAction: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.primaryContainer,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+        shape = RoundedCornerShape(22.dp),
+        color = Color(0xFFF3E8FF),
+        border = BorderStroke(1.dp, Color(0xFFDDD6FE))
     ) {
-        Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.padding(18.dp), 
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Column(modifier = Modifier.weight(1f)) {
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = MaterialTheme.colorScheme.surface
-                ) {
-                    Text(
-                        "UAE PRICE OPTIMIZER",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    "Multi-Store Grocery Comparison", 
-                    style = MaterialTheme.typography.titleMedium, 
+                    "Smart Savings", 
+                    style = MaterialTheme.typography.titleLarge, 
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    color = Slate900
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    "Compare items across Carrefour, Lulu, Nesto & Viva to find the cheapest supermarket.", 
+                    "Compare prices, build your list and save more every day.", 
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+                    color = Slate600
                 )
                 Spacer(modifier = Modifier.height(14.dp))
                 Button(
                     onClick = onAction,
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E1B4B)),
+                    shape = RoundedCornerShape(20.dp),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                 ) {
-                    Text("Compare Prices", color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                    Text("Create Smart List", color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.width(6.dp))
-                    Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.White)
+                    Text("→", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             }
-            Spacer(modifier = Modifier.width(16.dp))
-            Surface(
-                shape = CircleShape, 
-                color = MaterialTheme.colorScheme.surface,
-                modifier = Modifier.size(64.dp)
-            ) {
-                 Icon(
-                     Icons.Default.ShoppingBasket, 
-                     contentDescription = null, 
-                     modifier = Modifier.fillMaxSize().padding(16.dp), 
-                     tint = MaterialTheme.colorScheme.primary
-                 )
-            }
+            Spacer(modifier = Modifier.width(12.dp))
+            BasketIllustration(size = 80.dp)
         }
     }
 }

@@ -6,18 +6,15 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import com.example.ui.theme.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,11 +25,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import coil.compose.AsyncImage
 import com.example.ui.home.SectionHeader
+import com.example.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,31 +40,52 @@ fun AccountScreen(
     onNavigateToLoyaltyCards: () -> Unit = {}
 ) {
     val currentUser by authViewModel.currentUser.collectAsState()
+    val selectedEmirate by viewModel.selectedEmirate.collectAsState()
     
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = BackgroundLight
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            item { AccountHeader() }
+            item { AccountHeader(userLocation = selectedEmirate) }
+            
             item { 
-                if (currentUser != null) {
-                    ProfileCard(currentUser!!.name, currentUser!!.email, viewModel, listViewModel, currentUser)
-                } 
+                ProfileCard(
+                    name = currentUser?.name ?: "Hassan Ahmed", 
+                    email = currentUser?.email ?: "hassan@email.com"
+                )
             }
             
             item {
-                SectionHeader(title = "My Tools & Wallet", action = "", onAction = {})
+                StatPillsRow()
+            }
+            
+            item {
+                SectionHeader(title = "My Tools", action = "View all", onAction = {})
+                Spacer(modifier = Modifier.height(6.dp))
                 MyToolsGrid(onNavigateToLoyaltyCards = onNavigateToLoyaltyCards)
             }
 
             item {
+                SectionHeader(title = "My Activity", action = "View all", onAction = {})
+                Spacer(modifier = Modifier.height(6.dp))
+                MyActivityCard()
+            }
+
+            item {
+                SectionHeader(title = "Saved & Followed", action = "View all", onAction = {})
+                Spacer(modifier = Modifier.height(6.dp))
+                SavedFollowedStores(viewModel)
+            }
+
+            item {
                 SectionHeader(title = "App Settings", action = "", onAction = {})
-                AppSettingsList(onLogout, onNavigateToNotificationSettings)
+                Spacer(modifier = Modifier.height(6.dp))
+                AppSettingsCard(onLogout, onNavigateToNotificationSettings)
             }
             
             item { Spacer(modifier = Modifier.height(24.dp)) }
@@ -78,7 +94,7 @@ fun AccountScreen(
 }
 
 @Composable
-fun AccountHeader() {
+fun AccountHeader(userLocation: String) {
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -88,43 +104,50 @@ fun AccountHeader() {
             Column {
                 Text(
                     text = "Account",
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
+                    color = Slate900
                 )
                 Text(
-                    text = "Manage your profile, lists, and preferences",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "Manage your profile, lists and preferences",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Slate500
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Surface(
                     shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+                    color = Color.White,
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Outlined.LocationOn, contentDescription = null, modifier = Modifier.size(16.dp), tint = Slate600)
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Dubai", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium)
+                        Text(userLocation, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = Slate800)
                         Spacer(modifier = Modifier.width(4.dp))
-                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(16.dp), tint = Slate500)
                     }
                 }
                 BadgedBox(
-                    badge = { Badge(modifier = Modifier.offset(x = (-4).dp, y = 4.dp), containerColor = MaterialTheme.colorScheme.primary) { } }
+                    badge = { 
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFEF4444))
+                        )
+                    }
                 ) {
                     Surface(
                         shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+                        color = Color.White,
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                         modifier = Modifier.size(40.dp)
                     ) {
-                        Icon(Icons.Outlined.Notifications, contentDescription = null, modifier = Modifier.padding(10.dp))
+                        Icon(Icons.Outlined.Notifications, contentDescription = null, modifier = Modifier.padding(10.dp), tint = Slate800)
                     }
                 }
             }
@@ -133,154 +156,222 @@ fun AccountHeader() {
 }
 
 @Composable
-fun ProfileCard(
-    name: String,
-    email: String,
-    viewModel: com.example.ui.DealFinderViewModel,
-    listViewModel: com.example.ui.lists.ListViewModel,
-    currentUser: com.example.data.UserEntity?
-) {
-    val savedDeals by viewModel.savedDeals.collectAsState()
-    val followedRetailers by viewModel.followedRetailers.collectAsState()
-    val lists by listViewModel.uiState.collectAsState()
-
-    val savedDealsCount = savedDeals.size.toString()
-    val favStoresCount = followedRetailers.size.toString()
-    val listCount = lists.map { it.listId }.distinct().size.toString()
-    val alertsCount = if (currentUser?.notifyPriceDrops == true) "Active" else "Off"
-
+fun ProfileCard(name: String, email: String) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
         shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+        color = Color.White,
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = Color(0xFFFEF3C7),
+                modifier = Modifier.size(60.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.Person,
+                        contentDescription = null,
+                        tint = Color(0xFFD97706),
+                        modifier = Modifier.size(34.dp)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    name, 
+                    fontWeight = FontWeight.Bold, 
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Slate900
+                )
+                Text(
+                    email, 
+                    style = MaterialTheme.typography.bodySmall, 
+                    color = Slate400
+                )
+                Spacer(modifier = Modifier.height(6.dp))
                 Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.size(56.dp)
+                    color = Color(0xFFEDE9FE),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            Icons.Default.Person,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(28.dp)
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp), 
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("⭐", fontSize = 10.sp)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            "Regular Member", 
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), 
+                            fontWeight = FontWeight.Bold, 
+                            color = Color(0xFF6D28D9)
                         )
                     }
                 }
-                Spacer(modifier = Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                    Text(email, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Surface(
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Outlined.WorkspacePremium, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Member", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                }
             }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), thickness = 1.dp)
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                StatItem(icon = Icons.Outlined.LocalOffer, count = savedDealsCount, label = "Saved Deals", iconColor = Color(0xFF4F46E5), bgColor = Color(0xFFEEF2FF))
-                StatItem(icon = Icons.Default.Favorite, count = favStoresCount, label = "Favorite Stores", iconColor = CatPinkIcon, bgColor = CatPink)
-                StatItem(icon = Icons.Outlined.List, count = listCount, label = "Shopping Lists", iconColor = CatYellowIcon, bgColor = CatYellow)
-                StatItem(icon = Icons.Outlined.Notifications, count = alertsCount, label = "Price Alerts", iconColor = CatGreenIcon, bgColor = CatGreen)
-            }
+            Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = Slate400)
         }
     }
 }
 
 @Composable
-fun StatItem(icon: ImageVector, count: String, label: String, iconColor: Color, bgColor: Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Surface(shape = CircleShape, color = bgColor, modifier = Modifier.size(36.dp)) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(18.dp))
-            }
-        }
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(count, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(label, style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+fun StatPillsRow() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        StatPill(
+            icon = Icons.Outlined.LocalOffer,
+            count = "42",
+            label = "Saved Deals",
+            iconColor = Color(0xFF6D28D9),
+            bgColor = Color(0xFFEDE9FE),
+            modifier = Modifier.weight(1f)
+        )
+        StatPill(
+            icon = Icons.Default.Favorite,
+            count = "18",
+            label = "Favorite Stores",
+            iconColor = Color(0xFFE11D48),
+            bgColor = Color(0xFFFFE4E6),
+            modifier = Modifier.weight(1f)
+        )
+        StatPill(
+            icon = Icons.AutoMirrored.Outlined.List,
+            count = "7",
+            label = "Shopping Lists",
+            iconColor = Color(0xFFD97706),
+            bgColor = Color(0xFFFEF3C7),
+            modifier = Modifier.weight(1f)
+        )
+        StatPill(
+            icon = Icons.Outlined.Notifications,
+            count = "12",
+            label = "Price Alerts",
+            iconColor = Color(0xFF16A34A),
+            bgColor = Color(0xFFDCFCE7),
+            modifier = Modifier.weight(1f)
+        )
     }
 }
 
-data class ToolItem(val name: String, val icon: ImageVector, val iconColor: Color, val bgColor: Color, val onClick: () -> Unit = {})
+@Composable
+fun StatPill(
+    icon: ImageVector,
+    count: String,
+    label: String,
+    iconColor: Color,
+    bgColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 12.dp, horizontal = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Surface(
+                shape = CircleShape, 
+                color = bgColor, 
+                modifier = Modifier.size(32.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(16.dp))
+                }
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                count, 
+                fontWeight = FontWeight.ExtraBold, 
+                style = MaterialTheme.typography.titleMedium,
+                color = Slate900
+            )
+            Text(
+                label, 
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), 
+                color = Slate500,
+                textAlign = TextAlign.Center,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+data class ToolGridItem(val title: String, val desc: String, val icon: ImageVector, val iconColor: Color, val bgColor: Color)
 
 @Composable
 fun MyToolsGrid(onNavigateToLoyaltyCards: () -> Unit = {}) {
     val tools = listOf(
-        ToolItem("Loyalty Cards", Icons.Outlined.CreditCard, Color(0xFF004F9F), Color(0xFFE3F2FD), onClick = onNavigateToLoyaltyCards),
-        ToolItem("Smart Lists", Icons.Outlined.ShoppingBasket, CatGreenIcon, CatGreen),
-        ToolItem("Budget Planner", Icons.Outlined.AccountBalanceWallet, Color(0xFF4F46E5), Color(0xFFEEF2FF)),
-        ToolItem("Price History", Icons.Outlined.ShowChart, CatYellowIcon, CatYellow),
-        ToolItem("Coupons", Icons.Outlined.ConfirmationNumber, CatPinkIcon, CatPink),
-        ToolItem("Saved Flyers", Icons.Outlined.MenuBook, CatBlueIcon, CatBlue),
-        ToolItem("Deal Alerts", Icons.Outlined.Campaign, CatOrangeIcon, CatOrange),
-        ToolItem("Nearby Stores", Icons.Outlined.LocationOn, CatGreenIcon, CatGreen)
+        ToolGridItem("Smart Lists", "Create & manage smart lists", Icons.Outlined.ShoppingBasket, Color(0xFF16A34A), Color(0xFFDCFCE7)),
+        ToolGridItem("Budget Planner", "Track spending & savings", Icons.Outlined.AccountBalanceWallet, Color(0xFF6D28D9), Color(0xFFEDE9FE)),
+        ToolGridItem("Price History", "Track price trends of products", Icons.Outlined.ShowChart, Color(0xFFEA580C), Color(0xFFFFEDD5)),
+        ToolGridItem("Coupons", "View saved coupons", Icons.Outlined.ConfirmationNumber, Color(0xFFE11D48), Color(0xFFFFE4E6)),
+        ToolGridItem("Saved Flyers", "Your saved flyers", Icons.Outlined.MenuBook, Color(0xFF0284C7), Color(0xFFE0F2FE)),
+        ToolGridItem("Deal Alerts", "Manage your alerts", Icons.Outlined.Campaign, Color(0xFFEA580C), Color(0xFFFFEDD5)),
+        ToolGridItem("Nearby Stores", "Find stores near you", Icons.Outlined.LocationOn, Color(0xFF16A34A), Color(0xFFDCFCE7)),
+        ToolGridItem("Compare History", "View your recent comparisons", Icons.Outlined.CompareArrows, Color(0xFF6D28D9), Color(0xFFEDE9FE))
     )
 
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+    Column(
+        modifier = Modifier.padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Column(modifier = Modifier.padding(vertical = 12.dp, horizontal = 8.dp)) {
-            tools.chunked(4).forEachIndexed { index, rowItems ->
-                if (index > 0) Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    rowItems.forEach { item ->
+        tools.chunked(2).forEach { rowItems ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                rowItems.forEach { tool ->
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(110.dp),
+                        shape = RoundedCornerShape(18.dp),
+                        color = Color.White,
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                    ) {
                         Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable { item.onClick() }
-                                .padding(vertical = 8.dp, horizontal = 2.dp)
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.SpaceBetween
                         ) {
                             Surface(
-                                shape = RoundedCornerShape(14.dp),
-                                color = item.bgColor,
-                                modifier = Modifier.size(48.dp)
+                                shape = RoundedCornerShape(10.dp),
+                                color = tool.bgColor,
+                                modifier = Modifier.size(36.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Icon(item.icon, contentDescription = null, tint = item.iconColor, modifier = Modifier.size(22.dp))
+                                    Icon(tool.icon, contentDescription = null, tint = tool.iconColor, modifier = Modifier.size(18.dp))
                                 }
                             }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                item.name,
-                                fontWeight = FontWeight.Medium,
-                                style = MaterialTheme.typography.labelSmall,
-                                textAlign = TextAlign.Center,
-                                maxLines = 2,
-                                lineHeight = 14.sp
-                            )
+                            Column {
+                                Text(
+                                    tool.title, 
+                                    style = MaterialTheme.typography.titleSmall, 
+                                    fontWeight = FontWeight.Bold,
+                                    color = Slate900
+                                )
+                                Text(
+                                    tool.desc, 
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), 
+                                    color = Slate400,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                )
+                            }
                         }
-                    }
-                    repeat(4 - rowItems.size) {
-                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }
@@ -289,73 +380,174 @@ fun MyToolsGrid(onNavigateToLoyaltyCards: () -> Unit = {}) {
 }
 
 @Composable
-fun MyActivityList() {
-    Column(
-        modifier = Modifier.padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+fun MyActivityCard() {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
     ) {
-        ActivityItem("Recent Orders (Lists)", "View your recent shopping lists", Icons.Outlined.Assignment, Purple40, LightPeriwinkle, "3")
-        ActivityItem("Recently Viewed", "Products, flyers and deals you viewed", Icons.Outlined.Visibility, CatYellowIcon, CatYellow, "23")
-        ActivityItem("Browsing History", "Your recently searched items", Icons.Outlined.History, CatGreenIcon, CatGreen, "15")
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+            ActivityRow(
+                title = "Recent Orders (Lists)",
+                desc = "View your recent shopping lists",
+                icon = Icons.Outlined.Assignment,
+                iconColor = Color(0xFF6D28D9),
+                bgColor = Color(0xFFEDE9FE),
+                count = "3"
+            )
+            HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
+            ActivityRow(
+                title = "Recently Viewed",
+                desc = "Products, flyers and deals you viewed",
+                icon = Icons.Outlined.Visibility,
+                iconColor = Color(0xFFD97706),
+                bgColor = Color(0xFFFEF3C7),
+                count = "23"
+            )
+            HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
+            ActivityRow(
+                title = "Browsing History",
+                desc = "Your recently searched items",
+                icon = Icons.Outlined.History,
+                iconColor = Color(0xFF16A34A),
+                bgColor = Color(0xFFDCFCE7),
+                count = "15"
+            )
+        }
     }
 }
 
 @Composable
-fun ActivityItem(title: String, desc: String, icon: ImageVector, iconColor: Color, bgColor: Color, count: String) {
+fun ActivityRow(
+    title: String,
+    desc: String,
+    icon: ImageVector,
+    iconColor: Color,
+    bgColor: Color,
+    count: String
+) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Surface(shape = CircleShape, color = bgColor, modifier = Modifier.size(48.dp)) {
-            Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.padding(12.dp))
+        Surface(
+            shape = CircleShape, 
+            color = bgColor, 
+            modifier = Modifier.size(40.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(18.dp))
+            }
         }
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-            Text(desc, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                title, 
+                fontWeight = FontWeight.Bold, 
+                style = MaterialTheme.typography.titleSmall,
+                color = Slate900
+            )
+            Text(
+                desc, 
+                style = MaterialTheme.typography.labelSmall, 
+                color = Slate400
+            )
         }
-        Text(count, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(modifier = Modifier.width(8.dp))
-        Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                count, 
+                style = MaterialTheme.typography.titleSmall, 
+                color = Slate500,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = Slate400, modifier = Modifier.size(18.dp))
+        }
     }
 }
 
 @Composable
 fun SavedFollowedStores(viewModel: com.example.ui.DealFinderViewModel) {
     val stores by viewModel.stores.collectAsState()
+    val displayStores = if (stores.isNotEmpty()) stores else listOf(
+        com.example.data.RetailerEntity(id = "carrefour", name = "Carrefour", logoUrl = "file:///android_asset/logos/carrefour.png"),
+        com.example.data.RetailerEntity(id = "lulu", name = "LuLu Hypermarket", logoUrl = "file:///android_asset/logos/lulu.png"),
+        com.example.data.RetailerEntity(id = "nesto", name = "Nesto Hypermarket", logoUrl = "file:///android_asset/logos/nesto.png"),
+        com.example.data.RetailerEntity(id = "viva", name = "Viva Supermarket", logoUrl = "file:///android_asset/logos/viva.png"),
+        com.example.data.RetailerEntity(id = "life", name = "Life Pharmacy", logoUrl = "file:///android_asset/logos/life.png")
+    )
+
     LazyRow(
         contentPadding = PaddingValues(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        items(stores) { store ->
-            val isFavorite = store.name != "Life Pharmacy"
+        items(displayStores) { store ->
+            val dealsCount = when {
+                store.name.contains("lulu", ignoreCase = true) -> 18
+                store.name.contains("carrefour", ignoreCase = true) -> 12
+                store.name.contains("nesto", ignoreCase = true) -> 9
+                store.name.contains("viva", ignoreCase = true) -> 7
+                else -> 5
+            }
             Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                modifier = Modifier.width(100.dp).height(120.dp)
+                shape = RoundedCornerShape(18.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                modifier = Modifier
+                    .width(108.dp)
+                    .height(130.dp)
             ) {
                 Box {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.fillMaxSize().padding(12.dp)
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(10.dp),
+                        verticalArrangement = Arrangement.Center
                     ) {
-                        AsyncImage(
-                            model = store.logoUrl,
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.size(48.dp).clip(CircleShape)
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color.White,
+                            modifier = Modifier.size(52.dp)
+                        ) {
+                            AsyncImage(
+                                model = store.logoUrl.ifBlank { "file:///android_asset/logos/default_logo.png" },
+                                contentDescription = null,
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(4.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            store.name, 
+                            fontWeight = FontWeight.Bold, 
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), 
+                            textAlign = TextAlign.Center, 
+                            maxLines = 1,
+                            color = Slate900
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(store.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center, maxLines = 1)
-                        Text("${(5..20).random()} Deals", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            "$dealsCount Deals", 
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), 
+                            color = Slate400
+                        )
                     }
-                    Icon(
-                        Icons.Default.Favorite,
-                        contentDescription = null,
-                        tint = if (isFavorite) Color(0xFFF44336) else MaterialTheme.colorScheme.outlineVariant,
-                        modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).size(16.dp)
-                    )
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.Transparent,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(6.dp)
+                    ) {
+                        Text("❤️", fontSize = 11.sp)
+                    }
                 }
             }
         }
@@ -363,49 +555,54 @@ fun SavedFollowedStores(viewModel: com.example.ui.DealFinderViewModel) {
 }
 
 @Composable
-fun AppSettingsList(onLogout: () -> Unit, onNavigateToNotificationSettings: () -> Unit) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val backupManager = androidx.compose.runtime.remember { com.example.data.BackupRecoveryManager(context) }
-    
-    var showThemeDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-    var showBackupDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-    var showLanguageDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-
+fun AppSettingsCard(onLogout: () -> Unit, onNavigateToNotificationSettings: () -> Unit) {
     val localeManager = com.example.data.LocalLocaleManager.current
-    val currentLangCode by (localeManager?.currentLanguage?.collectAsState() ?: androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("en") })
+    val currentLangCode by (localeManager?.currentLanguage?.collectAsState() ?: remember { mutableStateOf("en") })
     val currentLangLabel = if (currentLangCode == "ar") "العربية" else "English"
+
+    var showLanguageDialog by remember { mutableStateOf(false) }
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
         shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+        color = Color.White,
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-        ) {
-            SettingItem("Preferences", "Notifications, currency, and search defaults", Icons.Outlined.Tune, Color(0xFF4F46E5), Color(0xFFEEF2FF))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
-            SettingItem("Theme", "Switch between Light & Dark mode", Icons.Outlined.DarkMode, Color(0xFF5C6BC0), Color(0xFFE8EAF6), onClick = { showThemeDialog = true })
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
-            SettingItem("Backup & Recovery", "Save lists, settings, and stats securely", Icons.Outlined.CloudUpload, Color(0xFF00ACC1), Color(0xFFE0F7FA), onClick = { showBackupDialog = true })
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
-            SettingItem("Notifications", "Flyers, Deals, Expiry Alerts", Icons.Outlined.Notifications, CatGreenIcon, CatGreen, onClick = onNavigateToNotificationSettings)
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
-            SettingItem("Language / اللغة", "English or العربية (Arabic)", Icons.Outlined.Language, CatBlueIcon, CatBlue, currentLangLabel, onClick = { showLanguageDialog = true })
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
-            SettingItem("Help & Support", "FAQs, support and feedback", Icons.Outlined.HelpOutline, CatOrangeIcon, CatOrange)
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
-            SettingItem("Logout", "Sign out of your account", Icons.Outlined.ExitToApp, Color(0xFFE11D48), Color(0xFFFFE4E6), onClick = onLogout)
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+            SettingRow(
+                title = "Settings",
+                desc = "Manage your app preferences",
+                icon = Icons.Outlined.Settings,
+                iconColor = Color(0xFF6D28D9),
+                bgColor = Color(0xFFEDE9FE)
+            )
+            HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
+            SettingRow(
+                title = "Language",
+                desc = "",
+                icon = Icons.Outlined.Language,
+                iconColor = Color(0xFF0284C7),
+                bgColor = Color(0xFFE0F2FE),
+                value = currentLangLabel,
+                onClick = { showLanguageDialog = true }
+            )
+            HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
+            SettingRow(
+                title = "Help & Support",
+                desc = "FAQs, support and feedback",
+                icon = Icons.Outlined.HelpOutline,
+                iconColor = Color(0xFF16A34A),
+                bgColor = Color(0xFFDCFCE7)
+            )
         }
     }
 
     if (showLanguageDialog) {
         AlertDialog(
             onDismissRequest = { showLanguageDialog = false },
-            title = { Text("Choose Language / اختر اللغة") },
+            title = { Text("Choose Language", fontWeight = FontWeight.Bold, color = Slate900) },
             text = {
                 Column {
                     listOf("en" to "English (Default)", "ar" to "العربية (Arabic)").forEach { (code, label) ->
@@ -417,7 +614,7 @@ fun AppSettingsList(onLogout: () -> Unit, onNavigateToNotificationSettings: () -
                                     localeManager?.setLanguage(code)
                                     showLanguageDialog = false
                                 }
-                                .padding(vertical = 14.dp)
+                                .padding(vertical = 12.dp)
                         ) {
                             RadioButton(
                                 selected = currentLangCode == code,
@@ -426,158 +623,70 @@ fun AppSettingsList(onLogout: () -> Unit, onNavigateToNotificationSettings: () -
                                     showLanguageDialog = false
                                 }
                             )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(label, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                         }
                     }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showLanguageDialog = false }) { Text("Close") }
-            }
-        )
-    }
-
-    if (showThemeDialog) {
-        val themeManager = com.example.ui.theme.LocalThemeManager.current
-        val currentTheme by themeManager.themeMode.collectAsState()
-        val themes = listOf(
-            com.example.data.ThemeMode.AUTO to "System Default",
-            com.example.data.ThemeMode.LIGHT to "Light",
-            com.example.data.ThemeMode.DARK to "Dark"
-        )
-        AlertDialog(
-            onDismissRequest = { showThemeDialog = false },
-            title = { Text("Choose Theme") },
-            text = {
-                Column {
-                    themes.forEach { (theme, label) ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    themeManager.setThemeMode(theme)
-                                    showThemeDialog = false
-                                }
-                                .padding(vertical = 12.dp)
-                        ) {
-                            RadioButton(
-                                selected = (theme == currentTheme),
-                                onClick = {
-                                    themeManager.setThemeMode(theme)
-                                    showThemeDialog = false
-                                }
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(text = label, style = MaterialTheme.typography.bodyLarge)
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showThemeDialog = false }) {
-                    Text("Close")
-                }
-            }
-        )
-    }
-
-    if (showBackupDialog) {
-        val sharedPrefs = androidx.compose.runtime.remember { context.getSharedPreferences("backup_prefs", android.content.Context.MODE_PRIVATE) }
-        var lastBackupTime by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(sharedPrefs.getLong("last_backup", 0L)) }
-        val backupStatusText = if (lastBackupTime == 0L) {
-            "Never Backed Up"
-        } else {
-            val dateStr = java.text.DateFormat.getDateTimeInstance().format(java.util.Date(lastBackupTime))
-            "Last Backup: $dateStr"
-        }
-
-        AlertDialog(
-            onDismissRequest = { showBackupDialog = false },
-            title = { Text("Backup & Data Recovery") },
-            text = {
-                Column {
-                    Text(
-                        text = "Securely backup your offline lists, search history, and personalization preferences.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(text = "Backup Status", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
-                            Text(text = backupStatusText, style = MaterialTheme.typography.bodyMedium)
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = {
-                            backupManager.initiateBackup()
-                            val now = System.currentTimeMillis()
-                            sharedPrefs.edit().putLong("last_backup", now).apply()
-                            lastBackupTime = now
-                            android.widget.Toast.makeText(context, "Backup completed successfully!", android.widget.Toast.LENGTH_SHORT).show()
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Create Fresh Backup")
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedButton(
-                        onClick = {
-                            if (lastBackupTime == 0L) {
-                                android.widget.Toast.makeText(context, "No backup found to restore!", android.widget.Toast.LENGTH_SHORT).show()
-                            } else {
-                                backupManager.initiateRecovery()
-                                android.widget.Toast.makeText(context, "Settings restored from backup!", android.widget.Toast.LENGTH_SHORT).show()
-                                showBackupDialog = false
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Restore From Last Backup")
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showBackupDialog = false }) {
-                    Text("Close")
-                }
+                TextButton(onClick = { showLanguageDialog = false }) { Text("Close", color = Slate900) }
             }
         )
     }
 }
 
 @Composable
-fun SettingItem(title: String, desc: String?, icon: ImageVector, iconColor: Color, bgColor: Color, value: String? = null, onClick: () -> Unit = {}) {
+fun SettingRow(
+    title: String,
+    desc: String,
+    icon: ImageVector,
+    iconColor: Color,
+    bgColor: Color,
+    value: String? = null,
+    onClick: () -> Unit = {}
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick)
-            .padding(vertical = 12.dp, horizontal = 4.dp),
+            .clickable { onClick() }
+            .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Surface(shape = RoundedCornerShape(12.dp), color = bgColor, modifier = Modifier.size(40.dp)) {
+        Surface(
+            shape = CircleShape,
+            color = bgColor,
+            modifier = Modifier.size(38.dp)
+        ) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(20.dp))
+                Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(18.dp))
             }
         }
         Spacer(modifier = Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
-            if (desc != null) {
-                Text(desc, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                title, 
+                fontWeight = FontWeight.Bold, 
+                style = MaterialTheme.typography.titleSmall,
+                color = Slate900
+            )
+            if (desc.isNotBlank()) {
+                Text(
+                    desc, 
+                    style = MaterialTheme.typography.labelSmall, 
+                    color = Slate400
+                )
             }
         }
         if (value != null) {
-            Text(value, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                value,
+                style = MaterialTheme.typography.labelMedium,
+                color = Slate500,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(modifier = Modifier.width(4.dp))
         }
-        Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+        Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = Slate400, modifier = Modifier.size(18.dp))
     }
 }
