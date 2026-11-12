@@ -61,7 +61,56 @@ inline fun <reified T> Query.asFlow(): Flow<List<T>> = callbackFlow {
             try {
                 trySend(snapshot.toObjects(T::class.java))
             } catch (e: Exception) {
-                android.util.Log.e("FirebaseManager", "Mapping error", e)
+                android.util.Log.w("FirebaseManager", "Standard mapping failed, attempting tolerant mapping for ${T::class.simpleName}: ${e.message}")
+                try {
+                    val parsed = snapshot.documents.mapNotNull { doc ->
+                        try {
+                            doc.toObject(T::class.java)
+                        } catch (docErr: Exception) {
+                            if (T::class == ProductEntity::class) {
+                                val d = doc.data ?: return@mapNotNull null
+                                ProductEntity(
+                                    id = doc.id,
+                                    masterProductId = d["masterProductId"] as? String ?: "",
+                                    retailerId = d["retailerId"] as? String ?: "",
+                                    flyerId = d["flyerId"] as? String ?: "",
+                                    name = d["name"] as? String ?: "",
+                                    normalizedName = d["normalizedName"] as? String ?: "",
+                                    searchKeywords = (d["searchKeywords"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
+                                    brand = d["brand"] as? String ?: "",
+                                    category = d["category"] as? String ?: "General",
+                                    barcode = d["barcode"] as? String ?: "",
+                                    imageUrl = d["imageUrl"] as? String ?: "",
+                                    currentPrice = (d["currentPrice"] as? Number)?.toDouble() ?: 0.0,
+                                    oldPrice = (d["oldPrice"] as? Number)?.toDouble(),
+                                    unitSize = (d["unitSize"] as? Number)?.toDouble() ?: 1.0,
+                                    unitType = d["unitType"] as? String ?: "unit",
+                                    validFrom = (d["validFrom"] as? Number)?.toLong() ?: 0L,
+                                    validTo = (d["validTo"] as? Number)?.toLong() ?: 0L,
+                                    status = d["status"] as? String ?: "published"
+                                ) as? T
+                            } else if (T::class == BranchEntity::class) {
+                                val d = doc.data ?: return@mapNotNull null
+                                BranchEntity(
+                                    id = doc.id,
+                                    retailerId = d["retailerId"] as? String ?: "",
+                                    name = d["name"] as? String ?: "",
+                                    emirate = d["emirate"] as? String ?: "",
+                                    address = d["address"] as? String ?: "",
+                                    latitude = (d["latitude"] as? Number)?.toDouble() ?: 0.0,
+                                    longitude = (d["longitude"] as? Number)?.toDouble() ?: 0.0,
+                                    phone = d["phone"] as? String ?: "",
+                                    openingHours = d["openingHours"] as? String ?: ""
+                                ) as? T
+                            } else {
+                                null
+                            }
+                        }
+                    }
+                    trySend(parsed)
+                } catch (fatal: Exception) {
+                    android.util.Log.e("FirebaseManager", "Tolerant mapping also failed", fatal)
+                }
             }
         }
     }

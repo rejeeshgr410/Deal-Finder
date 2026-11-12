@@ -3,6 +3,7 @@ package com.example.ui.flyers
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
@@ -88,6 +89,31 @@ fun FlyerViewerScreen(flyerId: String, viewModel: com.example.ui.DealFinderViewM
                 },
                 actions = {
                     val context = androidx.compose.ui.platform.LocalContext.current
+                    if (flyer.pdfUrl.isNotBlank()) {
+                        IconButton(onClick = {
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                val uri = if (flyer.pdfUrl.startsWith("http")) {
+                                    android.net.Uri.parse(flyer.pdfUrl)
+                                } else {
+                                    android.net.Uri.parse(flyer.imageUrl)
+                                }
+                                setDataAndType(uri, "application/pdf")
+                                flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                            }
+                            try {
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                try {
+                                    val webIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(flyer.imageUrl))
+                                    context.startActivity(webIntent)
+                                } catch (ex: Exception) {
+                                    android.widget.Toast.makeText(context, "Cannot open PDF viewer", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }) {
+                            Icon(Icons.AutoMirrored.Outlined.MenuBook, contentDescription = "Open Full Catalogue PDF")
+                        }
+                    }
                     IconButton(onClick = { viewModel.toggleSavedFlyer(flyer) }) {
                         Icon(
                             imageVector = if (isSaved) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,

@@ -4,7 +4,8 @@
 *.zip
 *.tar.gz
 *.rar
-D4D.apk
+# Scraped assets
+D4D/
 
 # Android / Gradle
 .gradle/

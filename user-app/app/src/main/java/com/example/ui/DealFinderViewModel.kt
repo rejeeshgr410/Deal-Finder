@@ -101,10 +101,15 @@ class DealFinderViewModel(private val repository: DealFinderRepository, private 
             } else {
                 repository.searchProducts(query).map { searched ->
                     val words = query.normalize().split(" ").filter { it.isNotBlank() }
-                    searched.filter { p ->
+                    val inMemory = products.value.filter { p ->
                         val searchStr = "${p.name.normalize()} ${p.brand.normalize()} ${p.category.normalize()}"
                         words.all { w -> searchStr.contains(w) }
                     }
+                    val remote = searched.filter { p ->
+                        val searchStr = "${p.name.normalize()} ${p.brand.normalize()} ${p.category.normalize()}"
+                        words.all { w -> searchStr.contains(w) }
+                    }
+                    (inMemory + remote).distinctBy { it.id }
                 }
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -116,10 +121,11 @@ class DealFinderViewModel(private val repository: DealFinderRepository, private 
             if (query.isBlank()) flowOf(emptyList<RetailerEntity>()) else {
                 repository.searchRetailers(query).map { searched ->
                     val words = query.normalize().split(" ").filter { it.isNotBlank() }
-                    searched.filter { s ->
+                    val inMemory = stores.value.filter { s ->
                         val searchStr = "${s.name.normalize()} ${s.emirates.normalize()}"
                         words.all { w -> searchStr.contains(w) }
                     }
+                    (inMemory + searched).distinctBy { it.id }
                 }
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -130,10 +136,10 @@ class DealFinderViewModel(private val repository: DealFinderRepository, private 
         .flatMapLatest { query ->
             if (query.isBlank()) flowOf(emptyList<FlyerEntity>()) else {
                 repository.searchFlyers(query).map { searched ->
-                    val words = query.normalize().split(" ").filter { it.isNotBlank() }
-                    searched.filter { f ->
+                    val inMemory = flyers.value.filter { f ->
                         f.title.normalize().contains(query.normalize())
                     }
+                    (inMemory + searched).distinctBy { it.id }
                 }
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
