@@ -13,6 +13,7 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
     val currentUserId: StateFlow<String?> = repository.currentUserId
     
     // Convert current user id to actual UserEntity dynamically
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val currentUser: StateFlow<UserEntity?> = currentUserId.flatMapLatest { id ->
         if (id != null) repository.getUserByIdFlow(id) else flowOf(null)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -95,6 +96,14 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
     }
 
     fun logout() {
+        try {
+            com.google.firebase.messaging.FirebaseMessaging.getInstance().token
+                .addOnSuccessListener { token ->
+                    com.example.service.MyFirebaseMessagingService.revokeTokenForCurrentUser(token)
+                }
+        } catch (_: Exception) {
+            // Safe fallback in unit tests or devices without Play Services
+        }
         repository.logout()
         _authState.value = AuthState.Idle
     }

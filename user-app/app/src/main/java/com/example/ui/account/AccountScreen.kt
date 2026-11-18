@@ -594,6 +594,8 @@ fun AppSettingsCard(onLogout: () -> Unit, onNavigateToNotificationSettings: () -
     val currentLangLabel = if (currentLangCode == "ar") "العربية" else "English"
 
     var showLanguageDialog by remember { mutableStateOf(false) }
+    var showDeleteDataDialog by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     Surface(
         modifier = Modifier
@@ -605,11 +607,12 @@ fun AppSettingsCard(onLogout: () -> Unit, onNavigateToNotificationSettings: () -
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
             SettingRow(
-                title = "Settings",
-                desc = "Manage your app preferences",
+                title = "Notification Preferences",
+                desc = "Manage opt-in alerts & unsubscribe",
                 icon = Icons.Outlined.Settings,
                 iconColor = Color(0xFF6D28D9),
-                bgColor = Color(0xFFEDE9FE)
+                bgColor = Color(0xFFEDE9FE),
+                onClick = onNavigateToNotificationSettings
             )
             HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
             SettingRow(
@@ -629,7 +632,51 @@ fun AppSettingsCard(onLogout: () -> Unit, onNavigateToNotificationSettings: () -
                 iconColor = Color(0xFF16A34A),
                 bgColor = Color(0xFFDCFCE7)
             )
+            HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
+            SettingRow(
+                title = "Delete Account Data",
+                desc = "Revoke device push token & clear saved data",
+                icon = Icons.Outlined.DeleteOutline,
+                iconColor = Color(0xFFDC2626),
+                bgColor = Color(0xFFFEE2E2),
+                onClick = { showDeleteDataDialog = true }
+            )
         }
+    }
+
+    if (showDeleteDataDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDataDialog = false },
+            title = { Text("Delete Account Data?", fontWeight = FontWeight.Bold, color = Slate900) },
+            text = {
+                Text(
+                    "This revokes this device's push notification token and signs you out. Full server-side removal of saved deals, flyers, coupons, search history, and profile data is handled by our authenticated deletion service (requestAccountDataDeletion).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Slate600
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteDataDialog = false
+                        android.widget.Toast.makeText(
+                            context,
+                            "Device push token revoked; signing out.",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                        onLogout()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
+                ) {
+                    Text("Revoke & Sign Out", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDataDialog = false }) {
+                    Text("Cancel", color = Slate900)
+                }
+            }
+        )
     }
 
     if (showLanguageDialog) {

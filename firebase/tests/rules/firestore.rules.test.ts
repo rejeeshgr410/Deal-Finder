@@ -291,4 +291,64 @@ describe('Canonical Firestore Security Rules (Named DB)', () => {
     await assertFails(updateDoc(doc(admin, 'users', 'consumer-1'), { role: 'super_admin' }));
     await assertSucceeds(updateDoc(doc(admin, 'users', 'consumer-1'), { role: 'moderator' }));
   });
+
+  it('enforces S6 notificationEvents, dispatched_to_provider notifications, extractionJobs, and fcmTokens PII exclusion', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'notificationEvents', 'evt-c1'), {
+        notificationId: 'note-pub',
+        userId: 'consumer-1',
+        status: 'accepted_by_provider'
+      });
+      await setDoc(doc(db, 'notifications', 'note-pub'), {
+        title: 'Verified Flyer',
+        targetType: 'broadcast',
+        status: 'dispatched_to_provider'
+      });
+      await setDoc(doc(db, 'notifications', 'note-queued'), {
+        title: 'Internal Draft',
+        targetType: 'broadcast',
+        status: 'queued'
+      });
+      await setDoc(doc(db, 'extractionJobs', 'job-a'), {
+        retailerId: 'retailer-a',
+        status: 'completed'
+      });
+    });
+
+    const consumer1 = dbFor('consumer-1');
+    const consumer2 = dbFor('consumer-2');
+    const admin = dbFor('admin-1', { role: 'admin' });
+    const retailerA = dbFor('retailer-a-owner', { role: 'retailer_owner', retailerId: 'retailer-a' });
+    const retailerB = dbFor('retailer-b-owner', { role: 'retailer_owner', retailerId: 'retailer-b' });
+
+    // notificationEvents: owner & admin can read; cross-user read & all client writes fail
+    await assertSucceeds(getDoc(doc(consumer1, 'notificationEvents', 'evt-c1')));
+    await assertSucceeds(getDoc(doc(admin, 'notificationEvents', 'evt-c1')));
+    await assertFails(getDoc(doc(consumer2, 'notificationEvents', 'evt-c1')));
+    await assertFails(setDoc(doc(consumer1, 'notificationEvents', 'evt-forged'), { userId: 'consumer-1', status: 'delivered' }));
+    await assertFails(updateDoc(doc(admin, 'notificationEvents', 'evt-c1'), { status: 'delivered' }));
+
+    // notifications: signed-in users can read dispatched_to_provider broadcasts, not queued drafts
+    await assertSucceeds(getDoc(doc(consumer1, 'notifications', 'note-pub')));
+    await assertFails(getDoc(doc(consumer1, 'notifications', 'note-queued')));
+
+    // fcmTokens: reject email/PII fields via hasOnly allowlist
+    await assertFails(
+      setDoc(doc(consumer1, 'fcmTokens', 'tok-with-pii'), {
+        id: 'tok-with-pii',
+        userId: 'consumer-1',
+        email: 'shopper@example.com',
+        status: 'active',
+        deviceType: 'Android',
+        updatedAt: 1000
+      })
+    );
+
+    // extractionJobs: tenant-isolated reads, zero client writes
+    await assertSucceeds(getDoc(doc(retailerA, 'extractionJobs', 'job-a')));
+    await assertFails(getDoc(doc(retailerB, 'extractionJobs', 'job-a')));
+    await assertFails(getDoc(doc(consumer1, 'extractionJobs', 'job-a')));
+    await assertFails(setDoc(doc(retailerA, 'extractionJobs', 'job-forged'), { retailerId: 'retailer-a', status: 'completed' }));
+  });
 });
