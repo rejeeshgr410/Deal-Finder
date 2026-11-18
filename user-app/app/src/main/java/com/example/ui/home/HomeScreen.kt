@@ -9,13 +9,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.CompareArrows
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.ConfirmationNumber
 import androidx.compose.material.icons.outlined.LocalOffer
-import androidx.compose.material.icons.outlined.CompareArrows
 import androidx.compose.material.icons.outlined.ShoppingBasket
 import androidx.compose.material.icons.outlined.Payment
 import androidx.compose.material3.*
@@ -62,21 +62,54 @@ fun HomeScreen(
     val products by viewModel.products.collectAsState()
     val promotions by viewModel.promotions.collectAsState()
     val isLoaded by viewModel.isLoaded.collectAsState()
+    val syncState by viewModel.syncState.collectAsState()
     val selectedEmirate by viewModel.selectedEmirate.collectAsState()
 
     val context = androidx.compose.ui.platform.LocalContext.current
-    val isNetworkAvailable = androidx.compose.runtime.remember(context) {
-        try {
-            val connectivityManager = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
-            val activeNetwork = connectivityManager.activeNetwork
-            val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
-            capabilities != null && (
+    val isNetworkAvailable by androidx.compose.runtime.produceState(initialValue = true, key1 = context) {
+        val cm = try {
+            context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+        } catch (_: Exception) {
+            null
+        }
+        fun checkOnline(): Boolean {
+            return try {
+                val activeNetwork = cm?.activeNetwork ?: return false
+                val capabilities = cm.getNetworkCapabilities(activeNetwork) ?: return false
                 capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) ||
-                capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) ||
-                capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET)
-            )
-        } catch (e: Exception) {
-            true // Fallback to assuming online to avoid false warnings
+                    capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                    capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET)
+            } catch (_: Exception) {
+                true
+            }
+        }
+        value = checkOnline()
+        val callback = object : android.net.ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: android.net.Network) {
+                value = true
+                viewModel.refreshCatalog()
+            }
+            override fun onLost(network: android.net.Network) {
+                value = checkOnline()
+            }
+        }
+        try {
+            cm?.registerDefaultNetworkCallback(callback)
+        } catch (_: Exception) {
+            // Fall back to initial value if network callback cannot be registered
+        }
+        awaitDispose {
+            try {
+                cm?.unregisterNetworkCallback(callback)
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    val lastUpdatedLabel = androidx.compose.runtime.remember(syncState.lastServerSyncAtMs) {
+        syncState.lastServerSyncAtMs?.let { ts ->
+            val fmt = java.text.SimpleDateFormat("dd MMM, HH:mm", java.util.Locale.getDefault())
+            "Last confirmed ${fmt.format(java.util.Date(ts))}"
         }
     }
 
@@ -90,35 +123,69 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             item { HomeHeader(userName = userName, locationName = selectedEmirate, onNavigateToCompare = onNavigateToCompare, onNavigateToLocation = onNavigateToLocation, onNavigateToNotifications = onNavigateToNotifications) }
-            
-            if (!isNetworkAvailable) {
+
+            if (!isNetworkAvailable || syncState.isCachePotentiallyStale() || syncState.errorMessage != null) {
                 item {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f)),
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                         shape = RoundedCornerShape(16.dp)
                     ) {
-                        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Icon(
-                                imageVector = Icons.Default.CloudOff, 
-                                contentDescription = "Offline Cache Identifier", 
+                                imageVector = Icons.Default.CloudOff,
+                                contentDescription = "Offline or cached data warning",
                                 tint = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.size(24.dp)
                             )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Offline Mode Active", 
-                                    style = MaterialTheme.typography.titleSmall, 
-                                    fontWeight = FontWeight.Bold, 
+                                    text = if (!isNetworkAvailable) "Offline Mode — Cached Data" else "Cached Data — May Be Outdated",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.error
                                 )
                                 Text(
-                                    text = "Using local device cache. You can still access saved shopping lists and browsing features offline.", 
-                                    style = MaterialTheme.typography.bodySmall, 
+                                    text = buildString {
+                                        append("Prices shown are from device cache, not live retailer feeds. ")
+                                        if (lastUpdatedLabel != null) append(lastUpdatedLabel) else append("Reconnect to revalidate.")
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onErrorContainer
                                 )
                             }
+                            if (isNetworkAvailable) {
+                                TextButton(onClick = { viewModel.refreshCatalog() }) {
+                                    Text("Refresh", fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if (lastUpdatedLabel != null) {
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Source: Retailer flyers & authorized feeds • $lastUpdatedLabel",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(
+                            onClick = { viewModel.refreshCatalog() },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                        ) {
+                            Text("Refresh", style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }
@@ -135,13 +202,32 @@ fun HomeScreen(
             }
             
             item {
-                SectionHeader(title = "Nearby Flyers", subtitle = "Within 10 km", action = "View all", onAction = onNavigateToFlyers)
+                SectionHeader(title = "Active Flyers", subtitle = selectedEmirate, action = "View all", onAction = onNavigateToFlyers)
                 if (!isLoaded) {
                     Box(modifier = Modifier.fillMaxWidth().height(210.dp), contentAlignment = Alignment.Center) { 
                         CircularProgressIndicator()
                     }
                 } else if (flyers.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxWidth().height(210.dp), contentAlignment = Alignment.Center) { Text("No flyers available") }
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                "No active flyers in $selectedEmirate right now.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            TextButton(onClick = onNavigateToLocation) {
+                                Text("Switch Emirate")
+                            }
+                        }
+                    }
                 } else {
                     LazyRow(
                         contentPadding = PaddingValues(horizontal = 16.dp),
@@ -153,20 +239,37 @@ fun HomeScreen(
             }
             
             item {
-                SectionHeader(title = "Top Deals Today", action = "View all", onAction = onNavigateToCompare)
+                SectionHeader(title = "Top Deals Today", subtitle = selectedEmirate, action = "View all", onAction = onNavigateToCompare)
                 if (!isLoaded) {
                      Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) { 
                         CircularProgressIndicator()
                      }
                 } else if (products.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) { 
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.CloudOff, contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(Icons.Default.CloudOff, contentDescription = null, modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text("No deals available offline.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Button(onClick = { /* Force refresh is handled by Firebase automatically, could show toast */ }) {
-                                Text("Retry")
+                            Text(
+                                if (!isNetworkAvailable) "No cached deals available offline for $selectedEmirate." else "No active published deals in $selectedEmirate yet.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(onClick = { viewModel.refreshCatalog() }) {
+                                    Text("Retry")
+                                }
+                                OutlinedButton(onClick = onNavigateToLocation) {
+                                    Text("Change Emirate")
+                                }
                             }
                         }
                     }
@@ -392,7 +495,7 @@ fun QuickActions(
     val items = listOf(
         QuickAction("Nearby Deals", Icons.Outlined.LocationOn, MockupMintBg, MockupMintGreen, onNavigateToFlyers),
         QuickAction("All Flyers", Icons.Outlined.LocalOffer, MockupPeachBg, MockupOrange, onNavigateToFlyers),
-        QuickAction("Price Compare", Icons.Outlined.CompareArrows, MockupPurpleBg, MockupPurpleText, onNavigateToCompare),
+        QuickAction("Price Compare", Icons.AutoMirrored.Outlined.CompareArrows, MockupPurpleBg, MockupPurpleText, onNavigateToCompare),
         QuickAction("Smart List", Icons.AutoMirrored.Outlined.List, MockupYellowContainer, MockupYellowDark, onNavigateToList),
         QuickAction("Coupons", Icons.Outlined.ConfirmationNumber, MockupPinkBg, MockupPink, onNavigateToCoupons)
     )
@@ -536,7 +639,7 @@ fun FlyerCard(flyer: FlyerEntity, store: RetailerEntity? = null, onClick: () -> 
                 daysLeft != null && daysLeft > 1 -> "$daysLeft DAYS LEFT"
                 daysLeft != null && daysLeft == 1 -> "1 DAY LEFT"
                 daysLeft != null && daysLeft == 0 -> "ENDS TODAY"
-                else -> "2 DAYS LEFT"
+                else -> "CHECK FLYER DATES"
             }
             Surface(
                 color = Color.White,
@@ -558,23 +661,37 @@ fun FlyerCard(flyer: FlyerEntity, store: RetailerEntity? = null, onClick: () -> 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductCard(product: ProductEntity, store: RetailerEntity? = null, onClick: () -> Unit = {}, onAddToList: (() -> Unit)? = null) {
-    val discountPercent = if (product.oldPrice != null && product.oldPrice > product.currentPrice) {
-        (((product.oldPrice - product.currentPrice) / product.oldPrice) * 100).toInt()
-    } else 20
+    val oldPrice = product.oldPrice
+    val discountPercent = if (oldPrice != null && oldPrice > product.currentPrice && oldPrice > 0.0) {
+        (((oldPrice - product.currentPrice) / oldPrice) * 100).toInt().takeIf { it > 0 }
+    } else null
+    val unitPriceText = com.example.domain.basket.OfferEligibility.computeUnitPriceText(product)
+    val subtitleMeta = buildString {
+        if (product.brand.isNotBlank()) append(product.brand)
+        val unitLabel = if (product.unitSize > 0 && product.unitType.isNotBlank()) {
+            val sizeStr = if (product.unitSize % 1.0 == 0.0) product.unitSize.toInt().toString() else product.unitSize.toString()
+            if (product.packCount > 1) "${product.packCount}x$sizeStr ${product.unitType}" else "$sizeStr ${product.unitType}"
+        } else ""
+        if (unitLabel.isNotBlank()) {
+            if (isNotEmpty()) append(" • ")
+            append(unitLabel)
+        }
+        if (isEmpty() && product.category.isNotBlank()) append(product.category)
+    }
 
     Card(
         onClick = onClick,
-        modifier = Modifier.width(160.dp),
+        modifier = Modifier.width(168.dp),
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Box {
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
                     modifier = Modifier.fillMaxWidth().height(100.dp)
                 ) {
                     AsyncImage(
@@ -585,65 +702,86 @@ fun ProductCard(product: ProductEntity, store: RetailerEntity? = null, onClick: 
                         modifier = Modifier.fillMaxSize().padding(4.dp)
                     )
                 }
-                Surface(
-                    color = Color(0xFF059669),
-                    shape = RoundedCornerShape(6.dp),
-                    modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)
-                ) {
-                    Text(
-                        "-$discountPercent%",
-                        color = Color.White,
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
+                if (discountPercent != null) {
+                    Surface(
+                        color = Color(0xFF059669),
+                        shape = RoundedCornerShape(6.dp),
+                        modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)
+                    ) {
+                        Text(
+                            "-$discountPercent%",
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(10.dp))
             Text(
-                text = product.name, 
-                style = MaterialTheme.typography.bodyMedium, 
-                fontWeight = FontWeight.Bold, 
+                text = product.name,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                color = Slate900
+                color = MaterialTheme.colorScheme.onSurface
             )
-            Text(
-                text = product.brand.ifBlank { "Philippines" }, 
-                style = MaterialTheme.typography.labelSmall, 
-                color = Slate400,
-                maxLines = 1
-            )
-            Spacer(modifier = Modifier.height(8.dp))
+            if (subtitleMeta.isNotBlank()) {
+                Text(
+                    text = subtitleMeta,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(modifier = Modifier.height(6.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "AED ",
                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                    color = Slate900,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
                     text = "%.2f".format(product.currentPrice),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.ExtraBold,
-                    color = Slate900
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-                if (product.oldPrice != null) {
+                if (oldPrice != null && oldPrice > product.currentPrice) {
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "AED %.2f".format(product.oldPrice),
+                        text = "AED %.2f".format(oldPrice),
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = Slate400,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textDecoration = TextDecoration.LineThrough
                     )
                 }
             }
+            if (unitPriceText != null) {
+                Text(
+                    text = unitPriceText,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
+            }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = store?.name ?: "Lulu Hypermarket", 
-                style = MaterialTheme.typography.labelSmall, 
-                color = Slate500,
-                maxLines = 1
+                text = store?.name ?: "Verified Retailer",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = product.sourceLabel.ifBlank { "Retailer flyer" },
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             
             if (onAddToList != null) {

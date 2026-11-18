@@ -496,33 +496,41 @@ fun ActivityRow(
 
 @Composable
 fun SavedFollowedStores(viewModel: com.example.ui.DealFinderViewModel) {
-    val stores by viewModel.stores.collectAsState()
-    val displayStores = if (stores.isNotEmpty()) stores else listOf(
-        com.example.data.RetailerEntity(id = "carrefour", name = "Carrefour", logoUrl = "file:///android_asset/logos/carrefour.png"),
-        com.example.data.RetailerEntity(id = "lulu", name = "LuLu Hypermarket", logoUrl = "file:///android_asset/logos/lulu.png"),
-        com.example.data.RetailerEntity(id = "nesto", name = "Nesto Hypermarket", logoUrl = "file:///android_asset/logos/nesto.png"),
-        com.example.data.RetailerEntity(id = "viva", name = "Viva Supermarket", logoUrl = "file:///android_asset/logos/viva.png"),
-        com.example.data.RetailerEntity(id = "life", name = "Life Pharmacy", logoUrl = "file:///android_asset/logos/life.png")
-    )
+    val followedStores by viewModel.followedRetailers.collectAsState()
+    val activeStores by viewModel.stores.collectAsState()
+    val products by viewModel.products.collectAsState()
+    val displayStores = if (followedStores.isNotEmpty()) followedStores else activeStores
+
+    if (displayStores.isEmpty()) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+        ) {
+            Text(
+                text = "No followed retailers yet. Follow a store from any deal or retailer page to see its active offers here.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(16.dp)
+            )
+        }
+        return
+    }
 
     LazyRow(
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         items(displayStores) { store ->
-            val dealsCount = when {
-                store.name.contains("lulu", ignoreCase = true) -> 18
-                store.name.contains("carrefour", ignoreCase = true) -> 12
-                store.name.contains("nesto", ignoreCase = true) -> 9
-                store.name.contains("viva", ignoreCase = true) -> 7
-                else -> 5
-            }
+            val dealsCount = products.count { it.retailerId == store.id }
             Surface(
                 shape = RoundedCornerShape(18.dp),
-                color = Color.White,
-                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 modifier = Modifier
-                    .width(108.dp)
+                    .width(116.dp)
                     .height(130.dp)
             ) {
                 Box {
@@ -535,12 +543,12 @@ fun SavedFollowedStores(viewModel: com.example.ui.DealFinderViewModel) {
                     ) {
                         Surface(
                             shape = RoundedCornerShape(12.dp),
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
                             modifier = Modifier.size(52.dp)
                         ) {
                             AsyncImage(
                                 model = store.logoUrl.ifBlank { "file:///android_asset/logos/default_logo.png" },
-                                contentDescription = null,
+                                contentDescription = store.name,
                                 contentScale = ContentScale.Fit,
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -549,27 +557,29 @@ fun SavedFollowedStores(viewModel: com.example.ui.DealFinderViewModel) {
                         }
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            store.name, 
-                            fontWeight = FontWeight.Bold, 
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), 
-                            textAlign = TextAlign.Center, 
+                            store.name,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            textAlign = TextAlign.Center,
                             maxLines = 1,
-                            color = Slate900
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            "$dealsCount Deals", 
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), 
-                            color = Slate400
+                            "$dealsCount Active Deals",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Surface(
-                        shape = CircleShape,
-                        color = Color.Transparent,
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(6.dp)
-                    ) {
-                        Text("❤️", fontSize = 11.sp)
+                    if (followedStores.any { it.id == store.id }) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color.Transparent,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(6.dp)
+                        ) {
+                            Text("❤️", fontSize = 11.sp)
+                        }
                     }
                 }
             }

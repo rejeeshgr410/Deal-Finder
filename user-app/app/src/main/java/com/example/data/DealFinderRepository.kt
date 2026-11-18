@@ -7,12 +7,27 @@ import kotlinx.coroutines.launch
 
 class DealFinderRepository(private val dao: DealFinderDao, private val cachedFlyerDao: CachedFlyerDao? = null) {
     val retailers = dao.getStores()
-    
+
+    fun getStoresEnvelope(limit: Int = FirestoreDealFinderDao.DEFAULT_STORES_LIMIT): Flow<SnapshotEnvelope<RetailerEntity>> =
+        dao.getStoresEnvelope(limit)
+
+    fun getFlyersEnvelope(limit: Int = FirestoreDealFinderDao.DEFAULT_FLYERS_LIMIT): Flow<SnapshotEnvelope<FlyerEntity>> =
+        dao.getFlyersEnvelope(limit)
+
+    fun getProductsEnvelope(limit: Int = FirestoreDealFinderDao.DEFAULT_PRODUCTS_PAGE_SIZE): Flow<SnapshotEnvelope<ProductEntity>> =
+        dao.getProductsEnvelope(limit)
+
+    /**
+     * Lifecycle-safe flyer stream: uses `channelFlow` so the Firestore listener cancels
+     * automatically when downstream collection stops (no leaked `CoroutineScope(Dispatchers.IO)`).
+     * Also enforces S5.3 offline/cache policy: cached flyers are filtered against current time
+     * so an expired promotion never remains valid while offline.
+     */
     val flyers: Flow<List<FlyerEntity>> = if (cachedFlyerDao != null) {
-        flow {
-            CoroutineScope(Dispatchers.IO).launch {
+        channelFlow {
+            val syncJob = launch(Dispatchers.IO) {
                 dao.getFlyers().collect { networkFlyers ->
-                    val cachedEntities = networkFlyers.map { 
+                    val cachedEntities = networkFlyers.map {
                         CachedFlyerEntity(
                             id = it.id,
                             retailerId = it.retailerId,
@@ -27,30 +42,43 @@ class DealFinderRepository(private val dao: DealFinderDao, private val cachedFly
                             clicks = it.clicks,
                             createdAt = it.createdAt,
                             updatedAt = it.updatedAt
-                        ) 
+                        )
                     }
                     cachedFlyerDao.insertFlyers(cachedEntities)
                 }
             }
-            cachedFlyerDao.getAllFlyers().collect { cached ->
-                emit(cached.map { 
-                    FlyerEntity(
-                        id = it.id,
-                        retailerId = it.retailerId,
-                        title = it.title,
-                        imageUrl = it.imageUrl,
-                        pdfUrl = it.pdfUrl,
-                        pages = it.pages,
-                        status = it.status,
-                        searchKeywords = emptyList(),
-                        validFrom = it.validFrom,
-                        validTo = it.validTo,
-                        views = it.views,
-                        clicks = it.clicks,
-                        createdAt = it.createdAt,
-                        updatedAt = it.updatedAt
+            try {
+                cachedFlyerDao.getAllFlyers().collect { cached ->
+                    val now = System.currentTimeMillis()
+                    send(
+                        cached
+                            .filter {
+                                it.status.equals("published", ignoreCase = true) &&
+                                    (it.validFrom == 0L || it.validFrom <= now) &&
+                                    (it.validTo == 0L || it.validTo > now)
+                            }
+                            .map {
+                                FlyerEntity(
+                                    id = it.id,
+                                    retailerId = it.retailerId,
+                                    title = it.title,
+                                    imageUrl = it.imageUrl,
+                                    pdfUrl = it.pdfUrl,
+                                    pages = it.pages,
+                                    status = it.status,
+                                    searchKeywords = emptyList(),
+                                    validFrom = it.validFrom,
+                                    validTo = it.validTo,
+                                    views = it.views,
+                                    clicks = it.clicks,
+                                    createdAt = it.createdAt,
+                                    updatedAt = it.updatedAt
+                                )
+                            }
                     )
-                })
+                }
+            } finally {
+                syncJob.cancel()
             }
         }
     } else {
@@ -60,7 +88,8 @@ class DealFinderRepository(private val dao: DealFinderDao, private val cachedFly
     val products = dao.getProducts()
     val recentSearches = dao.getRecentSearches()
 
-    fun searchProducts(query: String) = dao.searchProducts(query)
+    fun searchProducts(query: String, limit: Int = FirestoreDealFinderDao.DEFAULT_PRODUCTS_PAGE_SIZE) =
+        dao.searchProducts(query, limit)
     fun searchRetailers(query: String) = dao.searchStores(query)
     fun searchFlyers(query: String) = dao.searchFlyers(query)
 

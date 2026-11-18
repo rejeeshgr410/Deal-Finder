@@ -9,11 +9,22 @@ import kotlinx.coroutines.tasks.await
 
 class FirestoreDealFinderDao(private val db: FirebaseFirestore, private val sessionManager: SessionManager) : DealFinderDao {
 
-    override fun getStores(): Flow<List<RetailerEntity>> {
+    companion object {
+        const val DEFAULT_STORES_LIMIT = 200
+        const val DEFAULT_FLYERS_LIMIT = 200
+        const val DEFAULT_PRODUCTS_PAGE_SIZE = 100
+        const val MAX_PRODUCTS_PAGE_SIZE = 500
+    }
+
+    override fun getStores(): Flow<List<RetailerEntity>> =
+        getStoresEnvelope(DEFAULT_STORES_LIMIT).map { it.items }
+
+    override fun getStoresEnvelope(limit: Int): Flow<SnapshotEnvelope<RetailerEntity>> {
+        val bounded = limit.coerceIn(1, MAX_PRODUCTS_PAGE_SIZE)
         return db.collection("retailers")
             .whereEqualTo("status", "published")
-            .limit(100)
-            .asFlow()
+            .limit(bounded.toLong())
+            .asEnvelopeFlow(pageLimit = bounded)
     }
 
     override suspend fun getStoreById(storeId: String): RetailerEntity? {
@@ -25,30 +36,41 @@ class FirestoreDealFinderDao(private val db: FirebaseFirestore, private val sess
         }
     }
 
-    override fun getFlyers(): Flow<List<FlyerEntity>> {
-        val currentTime = System.currentTimeMillis()
+    override fun getFlyers(): Flow<List<FlyerEntity>> =
+        getFlyersEnvelope(DEFAULT_FLYERS_LIMIT).map { it.items }
+
+    override fun getFlyersEnvelope(limit: Int): Flow<SnapshotEnvelope<FlyerEntity>> {
+        val bounded = limit.coerceIn(1, MAX_PRODUCTS_PAGE_SIZE)
         return db.collection("flyers")
             .whereEqualTo("status", "published")
-            .limit(100)
-            .asFlow()
+            .limit(bounded.toLong())
+            .asEnvelopeFlow(pageLimit = bounded)
     }
 
-    override fun getProducts(): Flow<List<ProductEntity>> {
+    override fun getProducts(): Flow<List<ProductEntity>> =
+        getProductsEnvelope(DEFAULT_PRODUCTS_PAGE_SIZE).map { it.items }
+
+    override fun getProductsEnvelope(limit: Int): Flow<SnapshotEnvelope<ProductEntity>> {
+        val bounded = limit.coerceIn(1, MAX_PRODUCTS_PAGE_SIZE)
         return db.collection("products")
             .whereEqualTo("status", "published")
-            .limit(100)
-            .asFlow()
+            .limit(bounded.toLong())
+            .asEnvelopeFlow(pageLimit = bounded)
     }
 
-    override fun searchProducts(query: String): Flow<List<ProductEntity>> {
+    override fun searchProducts(query: String): Flow<List<ProductEntity>> =
+        searchProducts(query, DEFAULT_PRODUCTS_PAGE_SIZE)
+
+    override fun searchProducts(query: String, limit: Int): Flow<List<ProductEntity>> {
         val words = query.lowercase().split(" ").filter { it.isNotBlank() }
         if (words.isEmpty()) return kotlinx.coroutines.flow.emptyFlow()
         val primaryKeyword = words.first()
-        
+        val bounded = limit.coerceIn(1, MAX_PRODUCTS_PAGE_SIZE)
+
         return db.collection("products")
             .whereEqualTo("status", "published")
             .whereArrayContains("searchKeywords", primaryKeyword)
-            .limit(100)
+            .limit(bounded.toLong())
             .asFlow()
     }
 

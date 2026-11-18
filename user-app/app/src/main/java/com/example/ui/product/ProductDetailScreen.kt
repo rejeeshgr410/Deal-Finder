@@ -9,13 +9,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Directions
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Notifications
+import com.example.data.isEligibleForDistance
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -197,8 +199,88 @@ fun ProductDetailScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-                
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Source, verification, unit/pack, and promo terms disclosure (S5.2)
+                val dateFmt = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault())
+                val sourceDisplay = product.sourceLabel.ifBlank {
+                    when (product.sourceType.lowercase()) {
+                        "merchant_portal" -> "Merchant portal feed"
+                        "retailer_flyer" -> "Retailer flyer"
+                        else -> "Retailer flyer / authorized feed"
+                    }
+                }
+                val lastConfirmedDisplay = product.lastVerifiedAt?.takeIf { it > 0L }?.let {
+                    dateFmt.format(java.util.Date(it))
+                } ?: if (product.verificationLabel.equals("verified", ignoreCase = true)) {
+                    "Verified by reviewer"
+                } else {
+                    "Not independently confirmed — check in-store"
+                }
+                val unitPriceText = com.example.domain.basket.OfferEligibility.computeUnitPriceText(product)
+                val packSummary = buildString {
+                    if (product.unitSize > 0 && product.unitType.isNotBlank()) {
+                        val sizeStr = if (product.unitSize % 1.0 == 0.0) product.unitSize.toInt().toString() else product.unitSize.toString()
+                        if (product.packCount > 1) append("${product.packCount} x $sizeStr ${product.unitType}")
+                        else append("$sizeStr ${product.unitType}")
+                    }
+                    if (unitPriceText != null) {
+                        if (isNotEmpty()) append(" ($unitPriceText)") else append(unitPriceText)
+                    }
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = "Source: $sourceDisplay",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Last confirmed: $lastConfirmedDisplay",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (packSummary.isNotBlank()) {
+                            Text(
+                                text = "Pack / Unit: $packSummary",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (product.validTo > 0L) {
+                            Text(
+                                text = "Valid until: ${dateFmt.format(java.util.Date(product.validTo))}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (product.loyaltyRequired) {
+                            Text(
+                                text = "Requires retailer loyalty card",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        if (product.promoConditions.isNotBlank()) {
+                            Text(
+                                text = "Terms: ${product.promoConditions}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
                 Surface(
                     onClick = { onNavigateToRetailer(store.id) },
                     shape = RoundedCornerShape(16.dp),
@@ -230,11 +312,43 @@ fun ProductDetailScreen(
                             Text("Available at", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(store.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         }
-                        Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-                
-                Spacer(modifier = Modifier.height(20.dp))
+
+                val (nearestBranch, nearestDistanceKm) = viewModel.getNearestBranchAndDistance(store.id)
+                val detailContext = androidx.compose.ui.platform.LocalContext.current
+                if (nearestBranch != null && nearestBranch.isEligibleForDistance()) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedButton(
+                        onClick = {
+                            val label = android.net.Uri.encode("${store.name} - ${nearestBranch.name}")
+                            val uri = android.net.Uri.parse("geo:${nearestBranch.latitude},${nearestBranch.longitude}?q=${nearestBranch.latitude},${nearestBranch.longitude}($label)")
+                            val mapIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, uri)
+                            try {
+                                detailContext.startActivity(mapIntent)
+                            } catch (_: Exception) {
+                                android.widget.Toast.makeText(detailContext, "No maps app installed", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth().height(48.dp)
+                    ) {
+                        Icon(Icons.Default.Directions, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        val distText = nearestDistanceKm?.let { " (${"%.1f".format(it)} km straight-line)" } ?: ""
+                        Text("Directions to ${nearestBranch.name}$distText")
+                    }
+                } else {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Branch directions unavailable (verified branch coordinates not yet available).",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
                 Button(
                     onClick = onAddToList,
                     shape = RoundedCornerShape(14.dp),
@@ -253,15 +367,15 @@ fun ProductDetailScreen(
                 }.sortedBy { it.currentPrice }
                 val minPrice = similarProducts.firstOrNull()?.currentPrice ?: Double.MAX_VALUE
                 similarProducts.forEach { simProduct ->
-                    val (nearestBranch, distanceKm) = viewModel.getNearestBranchAndDistance(simProduct.retailerId)
+                    val (simBranch, distanceKm) = viewModel.getNearestBranchAndDistance(simProduct.retailerId)
                     SearchResultItem(
                         product = simProduct,
                         store = viewModel.getStore(simProduct.retailerId),
                         isCheapest = simProduct.currentPrice <= minPrice,
                         distanceKm = distanceKm,
-                        nearestBranchName = nearestBranch?.name,
+                        nearestBranchName = simBranch?.name,
                         onClick = { onNavigateToProduct(simProduct.id) },
-                        onStoreClick = { simProduct.retailerId?.let { onNavigateToRetailer(it) } },
+                        onStoreClick = { onNavigateToRetailer(simProduct.retailerId) },
                         onAddToList = onAddToList
                     )
                 }

@@ -64,7 +64,8 @@ fun CompareScreen(
     val stores by viewModel.searchResultsStores.collectAsState()
     val flyers by viewModel.searchResultsFlyers.collectAsState()
     val recentSearches by viewModel.recentSearches.collectAsState()
-    val trendingSearches by viewModel.trendingSearches.collectAsState()
+    val suggestedSearches by viewModel.suggestedSearches.collectAsState()
+    val syncState by viewModel.syncState.collectAsState()
     val userLocation = viewModel.selectedEmirate.collectAsState()
     val shoppingItems = listViewModel?.uiState?.collectAsState()?.value ?: emptyList()
     val allProducts by viewModel.products.collectAsState()
@@ -269,6 +270,35 @@ fun CompareScreen(
                 }
             }
 
+            if (syncState.isCachePotentiallyStale()) {
+                item {
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Showing cached offers — data may be outdated.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(
+                                onClick = { viewModel.refreshCatalog() },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                            ) {
+                                Text("Refresh", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                    }
+                }
+            }
+
             item {
                 PopularSearchesRow(onSelect = { query -> searchQuery = query })
             }
@@ -290,7 +320,11 @@ fun CompareScreen(
                             color = Slate900
                         )
                         Text(
-                            text = "${filteredProducts.size} results found",
+                            text = if (syncState.hasMoreProducts) {
+                                "${filteredProducts.size} results shown (more available)"
+                            } else {
+                                "${filteredProducts.size} results found"
+                            },
                             style = MaterialTheme.typography.labelSmall,
                             color = Slate400
                         )
@@ -385,9 +419,24 @@ fun CompareScreen(
                         onStoreClick = { onNavigateToRetailer(product.retailerId) }
                     )
                 }
+                if (syncState.hasMoreProducts) {
+                    item {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            OutlinedButton(
+                                onClick = { viewModel.loadMoreProducts() },
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Load more offers (currently capped at ${syncState.productsPageLimit})")
+                            }
+                        }
+                    }
+                }
             }
 
-            item { MissingItemBanner() }
+            item { MissingItemBanner(searchQuery = searchQuery, onSaveSearch = { q -> if (q.isNotBlank()) viewModel.insertSearchHistory(q) }) }
 
             item { Spacer(modifier = Modifier.height(24.dp)) }
         }
@@ -406,7 +455,7 @@ fun PopularSearchesRow(onSelect: (String) -> Unit) {
 
     Column(modifier = Modifier.padding(top = 4.dp)) {
         Text(
-            text = "Popular Searches",
+            text = "Suggested Searches",
             modifier = Modifier.padding(horizontal = 16.dp),
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
@@ -545,8 +594,12 @@ fun SearchResultItem(
     val unitPriceText = com.example.domain.basket.OfferEligibility.computeUnitPriceText(product)
     val comparisonOldPrice = product.oldPrice
     val hasValidComparisonPrice = comparisonOldPrice != null && comparisonOldPrice > product.currentPrice
-    val savings = if (hasValidComparisonPrice) (comparisonOldPrice!! - product.currentPrice) else 0.0
-    val savedPercentage = if (hasValidComparisonPrice && comparisonOldPrice!! > 0) ((savings / comparisonOldPrice) * 100).toInt() else 0
+    val savings = if (comparisonOldPrice != null && comparisonOldPrice > product.currentPrice) {
+        comparisonOldPrice - product.currentPrice
+    } else 0.0
+    val savedPercentage = if (comparisonOldPrice != null && comparisonOldPrice > product.currentPrice && comparisonOldPrice > 0.0) {
+        ((savings / comparisonOldPrice) * 100).toInt()
+    } else 0
 
     Surface(
         modifier = Modifier
@@ -696,7 +749,7 @@ fun SearchResultItem(
 }
 
 @Composable
-fun MissingItemBanner() {
+fun MissingItemBanner(searchQuery: String = "", onSaveSearch: (String) -> Unit = {}) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -731,7 +784,7 @@ fun MissingItemBanner() {
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    "Create a price alert and we'll notify you when a deal is available.", 
+                    "Save this search term to re-check quickly when new flyers are published.", 
                     style = MaterialTheme.typography.labelSmall, 
                     color = Slate600
                 )
@@ -739,12 +792,19 @@ fun MissingItemBanner() {
             Spacer(modifier = Modifier.width(10.dp))
             val context = androidx.compose.ui.platform.LocalContext.current
             Button(
-                onClick = { android.widget.Toast.makeText(context, "Price alert created for this search", android.widget.Toast.LENGTH_SHORT).show() },
+                onClick = {
+                    if (searchQuery.isNotBlank()) {
+                        onSaveSearch(searchQuery)
+                        android.widget.Toast.makeText(context, "Saved \"$searchQuery\" to recent searches", android.widget.Toast.LENGTH_SHORT).show()
+                    } else {
+                        android.widget.Toast.makeText(context, "Type a product name above to save a search", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
                 shape = RoundedCornerShape(20.dp),
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
             ) {
-                Text("Create Alert", color = Color.White, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                Text("Save Search", color = Color.White, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.width(4.dp))
                 Icon(Icons.Outlined.Notifications, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.White)
             }

@@ -83,12 +83,37 @@ abstract class DealFinderRoomDatabase : RoomDatabase() {
 
 interface DealFinderDao {
     fun getStores(): Flow<List<RetailerEntity>>
+    fun getStoresEnvelope(limit: Int = 200): Flow<SnapshotEnvelope<RetailerEntity>> =
+        getStores().let { flow ->
+            kotlinx.coroutines.flow.flow {
+                flow.collect { list ->
+                    emit(SnapshotEnvelope(items = list, isTruncated = limit > 0 && list.size >= limit, pageLimit = limit))
+                }
+            }
+        }
     suspend fun getStoreById(storeId: String): RetailerEntity?
 
     fun getFlyers(): Flow<List<FlyerEntity>>
+    fun getFlyersEnvelope(limit: Int = 200): Flow<SnapshotEnvelope<FlyerEntity>> =
+        getFlyers().let { flow ->
+            kotlinx.coroutines.flow.flow {
+                flow.collect { list ->
+                    emit(SnapshotEnvelope(items = list, isTruncated = limit > 0 && list.size >= limit, pageLimit = limit))
+                }
+            }
+        }
 
     fun getProducts(): Flow<List<ProductEntity>>
+    fun getProductsEnvelope(limit: Int = 100): Flow<SnapshotEnvelope<ProductEntity>> =
+        getProducts().let { flow ->
+            kotlinx.coroutines.flow.flow {
+                flow.collect { list ->
+                    emit(SnapshotEnvelope(items = list, isTruncated = limit > 0 && list.size >= limit, pageLimit = limit))
+                }
+            }
+        }
     fun searchProducts(query: String): Flow<List<ProductEntity>>
+    fun searchProducts(query: String, limit: Int): Flow<List<ProductEntity>> = searchProducts(query)
     fun searchStores(query: String): Flow<List<RetailerEntity>>
     fun searchFlyers(query: String): Flow<List<FlyerEntity>>
 

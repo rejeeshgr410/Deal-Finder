@@ -7,10 +7,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Directions
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Storefront
+import com.example.data.isEligibleForDistance
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -157,6 +159,59 @@ fun RetailerScreen(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                            }
+                        }
+                    }
+                }
+            }
+
+            val storeBranches = viewModel.getBranchesForStoreInEmirate(store.id)
+            if (storeBranches.isNotEmpty()) {
+                item {
+                    SectionHeader(title = "Branches", action = "", onAction = {})
+                }
+                items(storeBranches) { branch ->
+                    val branchContext = androidx.compose.ui.platform.LocalContext.current
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(branch.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                if (branch.address.isNotBlank()) {
+                                    Text(branch.address, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                if (!branch.isEligibleForDistance()) {
+                                    Text(
+                                        "Coordinates pending verification",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            if (branch.isEligibleForDistance()) {
+                                OutlinedButton(
+                                    onClick = {
+                                        val label = android.net.Uri.encode("${store.name} - ${branch.name}")
+                                        val uri = android.net.Uri.parse("geo:${branch.latitude},${branch.longitude}?q=${branch.latitude},${branch.longitude}($label)")
+                                        try {
+                                            branchContext.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, uri))
+                                        } catch (_: Exception) {
+                                            android.widget.Toast.makeText(branchContext, "No maps app installed", android.widget.Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    Icon(Icons.Default.Directions, contentDescription = "Directions", modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Directions", style = MaterialTheme.typography.labelSmall)
+                                }
                             }
                         }
                     }

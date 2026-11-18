@@ -51,11 +51,132 @@ object FirebaseManager {
     }
 }
 
+data class SnapshotEnvelope<T>(
+    val items: List<T> = emptyList(),
+    val isFromCache: Boolean = false,
+    val hasPendingWrites: Boolean = false,
+    val lastServerSyncAtMs: Long? = null,
+    val errorMessage: String? = null,
+    val isTruncated: Boolean = false,
+    val pageLimit: Int = 0
+)
+
+inline fun <reified T> Query.asEnvelopeFlow(pageLimit: Int = 0): Flow<SnapshotEnvelope<T>> = callbackFlow {
+    var lastServerSync: Long? = null
+    val listener = addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE) { snapshot, error ->
+        if (error != null) {
+            android.util.Log.e("FirebaseManager", "Firestore error", error)
+            trySend(
+                SnapshotEnvelope(
+                    items = emptyList(),
+                    isFromCache = true,
+                    lastServerSyncAtMs = lastServerSync,
+                    errorMessage = error.localizedMessage ?: "Unable to reach server",
+                    isTruncated = false,
+                    pageLimit = pageLimit
+                )
+            )
+        }
+        if (snapshot != null) {
+            val fromCache = snapshot.metadata.isFromCache
+            val pendingWrites = snapshot.metadata.hasPendingWrites()
+            if (!fromCache) {
+                lastServerSync = System.currentTimeMillis()
+            }
+            val parsed: List<T> = try {
+                snapshot.toObjects(T::class.java)
+            } catch (e: Exception) {
+                android.util.Log.w("FirebaseManager", "Standard mapping failed, attempting tolerant mapping for ${T::class.simpleName}: ${e.message}")
+                try {
+                    snapshot.documents.mapNotNull { doc ->
+                        try {
+                            doc.toObject(T::class.java)
+                        } catch (docErr: Exception) {
+                            if (T::class == ProductEntity::class) {
+                                val d = doc.data ?: return@mapNotNull null
+                                ProductEntity(
+                                    id = doc.id,
+                                    masterProductId = d["masterProductId"] as? String ?: "",
+                                    retailerId = d["retailerId"] as? String ?: "",
+                                    flyerId = d["flyerId"] as? String ?: "",
+                                    name = d["name"] as? String ?: "",
+                                    normalizedName = d["normalizedName"] as? String ?: "",
+                                    searchKeywords = (d["searchKeywords"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
+                                    brand = d["brand"] as? String ?: "",
+                                    category = d["category"] as? String ?: "General",
+                                    barcode = d["barcode"] as? String ?: "",
+                                    imageUrl = d["imageUrl"] as? String ?: "",
+                                    currentPrice = (d["currentPrice"] as? Number)?.toDouble() ?: 0.0,
+                                    oldPrice = (d["oldPrice"] as? Number)?.toDouble(),
+                                    unitSize = (d["unitSize"] as? Number)?.toDouble() ?: 1.0,
+                                    unitType = d["unitType"] as? String ?: "unit",
+                                    validFrom = (d["validFrom"] as? Number)?.toLong() ?: 0L,
+                                    validTo = (d["validTo"] as? Number)?.toLong() ?: 0L,
+                                    status = d["status"] as? String ?: "published",
+                                    schemaVersion = (d["schemaVersion"] as? Number)?.toInt() ?: 1,
+                                    amountMinor = (d["amountMinor"] as? Number)?.toLong(),
+                                    comparisonPriceMinor = (d["comparisonPriceMinor"] as? Number)?.toLong(),
+                                    baseQuantity = (d["baseQuantity"] as? Number)?.toDouble(),
+                                    baseUnit = d["baseUnit"] as? String,
+                                    packCount = (d["packCount"] as? Number)?.toInt() ?: 1,
+                                    minUnits = (d["minUnits"] as? Number)?.toInt() ?: 1,
+                                    buyUnits = (d["buyUnits"] as? Number)?.toInt(),
+                                    freeUnits = (d["freeUnits"] as? Number)?.toInt(),
+                                    loyaltyRequired = d["loyaltyRequired"] as? Boolean ?: false,
+                                    couponRequired = d["couponRequired"] as? Boolean ?: false,
+                                    promoConditions = d["promoConditions"] as? String ?: "",
+                                    availability = d["availability"] as? String ?: "unknown",
+                                    sourceType = d["sourceType"] as? String ?: "",
+                                    sourceLabel = d["sourceLabel"] as? String ?: "",
+                                    verificationLabel = d["verificationLabel"] as? String ?: "unverified",
+                                    lastVerifiedAt = (d["lastVerifiedAt"] as? Number)?.toLong(),
+                                    isDemo = d["isDemo"] as? Boolean ?: false
+                                ) as? T
+                            } else if (T::class == BranchEntity::class) {
+                                val d = doc.data ?: return@mapNotNull null
+                                BranchEntity(
+                                    id = doc.id,
+                                    retailerId = d["retailerId"] as? String ?: "",
+                                    name = d["name"] as? String ?: "",
+                                    emirate = d["emirate"] as? String ?: "",
+                                    address = d["address"] as? String ?: "",
+                                    latitude = (d["latitude"] as? Number)?.toDouble() ?: 0.0,
+                                    longitude = (d["longitude"] as? Number)?.toDouble() ?: 0.0,
+                                    phone = d["phone"] as? String ?: "",
+                                    openingHours = d["openingHours"] as? String ?: "",
+                                    coordsVerified = d["coordsVerified"] as? Boolean ?: false,
+                                    coordSource = d["coordSource"] as? String ?: ""
+                                ) as? T
+                            } else {
+                                null
+                            }
+                        }
+                    }
+                } catch (fatal: Exception) {
+                    android.util.Log.e("FirebaseManager", "Tolerant mapping also failed", fatal)
+                    emptyList()
+                }
+            }
+            trySend(
+                SnapshotEnvelope(
+                    items = parsed,
+                    isFromCache = fromCache,
+                    hasPendingWrites = pendingWrites,
+                    lastServerSyncAtMs = lastServerSync,
+                    errorMessage = error?.localizedMessage,
+                    isTruncated = pageLimit > 0 && parsed.size >= pageLimit,
+                    pageLimit = pageLimit
+                )
+            )
+        }
+    }
+    awaitClose { listener.remove() }
+}
+
 inline fun <reified T> Query.asFlow(): Flow<List<T>> = callbackFlow {
     val listener = addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE) { snapshot, error ->
         if (error != null) {
             android.util.Log.e("FirebaseManager", "Firestore error", error)
-            // offline, don't close.
         }
         if (snapshot != null) {
             try {
