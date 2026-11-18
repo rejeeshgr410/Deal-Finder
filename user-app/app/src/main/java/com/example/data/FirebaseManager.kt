@@ -87,7 +87,25 @@ inline fun <reified T> Query.asFlow(): Flow<List<T>> = callbackFlow {
                                     unitType = d["unitType"] as? String ?: "unit",
                                     validFrom = (d["validFrom"] as? Number)?.toLong() ?: 0L,
                                     validTo = (d["validTo"] as? Number)?.toLong() ?: 0L,
-                                    status = d["status"] as? String ?: "published"
+                                    status = d["status"] as? String ?: "published",
+                                    schemaVersion = (d["schemaVersion"] as? Number)?.toInt() ?: 1,
+                                    amountMinor = (d["amountMinor"] as? Number)?.toLong(),
+                                    comparisonPriceMinor = (d["comparisonPriceMinor"] as? Number)?.toLong(),
+                                    baseQuantity = (d["baseQuantity"] as? Number)?.toDouble(),
+                                    baseUnit = d["baseUnit"] as? String,
+                                    packCount = (d["packCount"] as? Number)?.toInt() ?: 1,
+                                    minUnits = (d["minUnits"] as? Number)?.toInt() ?: 1,
+                                    buyUnits = (d["buyUnits"] as? Number)?.toInt(),
+                                    freeUnits = (d["freeUnits"] as? Number)?.toInt(),
+                                    loyaltyRequired = d["loyaltyRequired"] as? Boolean ?: false,
+                                    couponRequired = d["couponRequired"] as? Boolean ?: false,
+                                    promoConditions = d["promoConditions"] as? String ?: "",
+                                    availability = d["availability"] as? String ?: "unknown",
+                                    sourceType = d["sourceType"] as? String ?: "",
+                                    sourceLabel = d["sourceLabel"] as? String ?: "",
+                                    verificationLabel = d["verificationLabel"] as? String ?: "unverified",
+                                    lastVerifiedAt = (d["lastVerifiedAt"] as? Number)?.toLong(),
+                                    isDemo = d["isDemo"] as? Boolean ?: false
                                 ) as? T
                             } else if (T::class == BranchEntity::class) {
                                 val d = doc.data ?: return@mapNotNull null
@@ -100,7 +118,9 @@ inline fun <reified T> Query.asFlow(): Flow<List<T>> = callbackFlow {
                                     latitude = (d["latitude"] as? Number)?.toDouble() ?: 0.0,
                                     longitude = (d["longitude"] as? Number)?.toDouble() ?: 0.0,
                                     phone = d["phone"] as? String ?: "",
-                                    openingHours = d["openingHours"] as? String ?: ""
+                                    openingHours = d["openingHours"] as? String ?: "",
+                                    coordsVerified = d["coordsVerified"] as? Boolean ?: false,
+                                    coordSource = d["coordSource"] as? String ?: ""
                                 ) as? T
                             } else {
                                 null

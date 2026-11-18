@@ -5,6 +5,7 @@ import { Modal } from '../components/Modal';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { normalizeString, calculateWordOverlap, calculateLevenshteinSimilarity, extractUnit, findBestMasterMatch } from '../lib/matching';
+import { aedToFils, buildDedupeKey, isValidGtin, normalizeQuantityUnit } from '../lib/offerContract';
 import { trackEvent } from '../lib/analytics';
 import { where } from 'firebase/firestore';
 
@@ -180,10 +181,49 @@ export default function Products() {
     setEditingId(null);
   };
 
+  const buildV2ProductPayload = (retailerIdValue: string) => {
+    const priceNum = Number(newProduct.currentPrice) || 0;
+    const oldNum = Number(newProduct.oldPrice) || 0;
+    const normalizedUnit = normalizeQuantityUnit(newProduct.unitSize, newProduct.unitType);
+    const validGtin = isValidGtin(newProduct.barcode) ? newProduct.barcode.trim() : undefined;
+    const effectiveStatus = isRetailerUser && newProduct.status === 'published' ? 'pending_admin_review' : newProduct.status;
+    return {
+      ...newProduct,
+      retailerId: retailerIdValue,
+      status: effectiveStatus,
+      schemaVersion: 2,
+      currency: 'AED',
+      amountMinor: priceNum > 0 ? aedToFils(priceNum) : 0,
+      comparisonPriceMinor: oldNum > priceNum && oldNum > 0 ? aedToFils(oldNum) : null,
+      baseQuantity: normalizedUnit?.baseQuantity ?? null,
+      baseUnit: normalizedUnit?.baseUnit ?? null,
+      packCount: normalizedUnit?.packCount ?? 1,
+      barcodeGtin: validGtin ?? null,
+      availability: 'unknown',
+      sourceType: 'merchant_upload',
+      sourceLabel: 'Merchant Portal Entry',
+      verificationLabel: isAdminUser ? 'admin_reviewed' : 'merchant_confirmed',
+      isDemo: false,
+      dedupeKey: buildDedupeKey(retailerIdValue || 'unknown', {
+        barcodeGtin: validGtin,
+        brand: newProduct.brand || '',
+        nameEn: newProduct.name || '',
+        baseQuantity: normalizedUnit?.baseQuantity,
+        baseUnit: normalizedUnit?.baseUnit,
+        packCount: normalizedUnit?.packCount
+      })
+    };
+  };
+
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const payload = { ...newProduct, retailerId: isRetailerUser ? user.retailerId : selectedRetailer };
+      const targetRetailer = isRetailerUser ? user.retailerId : selectedRetailer;
+      if (!targetRetailer) {
+        showToast('Please select a retailer first.', 'error');
+        return;
+      }
+      const payload = buildV2ProductPayload(targetRetailer);
       await add(payload);
       setIsAdding(false);
       resetForm();
@@ -197,7 +237,8 @@ export default function Products() {
     e.preventDefault();
     try {
       if (editingId) {
-        const payload = { ...newProduct, retailerId: isRetailerUser ? user.retailerId : selectedRetailer };
+        const targetRetailer = isRetailerUser ? user.retailerId : selectedRetailer;
+        const payload = buildV2ProductPayload(targetRetailer || '');
         await update(editingId, payload);
       }
       setIsEditing(false);

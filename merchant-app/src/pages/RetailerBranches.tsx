@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCollection } from '../lib/firebase-hooks';
 import { useToast } from '../contexts/ToastContext';
+import { validateBranchCoordinates } from '../lib/offerContract';
 import { MapPin, Plus, Edit2, Trash2, Phone, Map, Building2, Store } from 'lucide-react';
 
 export default function RetailerBranches() {
@@ -48,16 +49,43 @@ export default function RetailerBranches() {
     e.preventDefault();
     if (!user.retailerId) return;
 
+    const hasCoordsInput = String(formData.latitude).trim() !== '' || String(formData.longitude).trim() !== '';
+    let coordPayload: { latitude: number | null; longitude: number | null; coordsVerified: boolean; coordSource: string } = {
+      latitude: null,
+      longitude: null,
+      coordsVerified: false,
+      coordSource: 'unverified'
+    };
+
+    if (hasCoordsInput) {
+      const check = validateBranchCoordinates(formData.latitude, formData.longitude, 'merchant_entered');
+      if (!check.valid) {
+        showToast(check.errors[0] || 'Invalid UAE branch coordinates.', 'error');
+        return;
+      }
+      coordPayload = {
+        latitude: check.latitude,
+        longitude: check.longitude,
+        coordsVerified: check.coordsVerified,
+        coordSource: 'merchant_entered'
+      };
+    }
+
+    const payload = {
+      ...formData,
+      ...coordPayload
+    };
+
     try {
       if (editingId) {
         await update(editingId, {
-          ...formData,
+          ...payload,
           updatedAt: new Date().toISOString()
         });
         showToast('Branch updated successfully', 'success');
       } else {
         await add({ 
-          ...formData, 
+          ...payload, 
           retailerId: user.retailerId,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()

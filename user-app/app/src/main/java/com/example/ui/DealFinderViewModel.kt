@@ -7,6 +7,8 @@ import com.example.data.DealFinderRepository
 import com.example.data.FlyerEntity
 import com.example.data.ProductEntity
 import com.example.data.RetailerEntity
+import com.example.data.isCurrentlyEligible
+import com.example.data.isEligibleForDistance
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -36,7 +38,8 @@ class DealFinderViewModel(private val repository: DealFinderRepository, private 
 
     val products: StateFlow<List<ProductEntity>> = combine(repository.products, stores) { allProducts, filteredStores ->
         val storeIds = filteredStores.map { it.id }.toSet()
-        allProducts.filter { it.retailerId in storeIds && it.status.lowercase() == "published" }
+        val now = System.currentTimeMillis()
+        allProducts.filter { it.retailerId in storeIds && it.isCurrentlyEligible(nowMs = now) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val coupons: StateFlow<List<com.example.data.CouponEntity>> = repository.allCoupons
@@ -169,15 +172,13 @@ class DealFinderViewModel(private val repository: DealFinderRepository, private 
         val lat = userLoc?.first ?: fallbackEmirate?.lat ?: return null
         val lon = userLoc?.second ?: fallbackEmirate?.lon ?: return null
 
-        val storeBranches = branches.value.filter { it.retailerId == retailerId }
+        val storeBranches = branches.value.filter { it.retailerId == retailerId && it.isEligibleForDistance() }
         if (storeBranches.isNotEmpty()) {
             return storeBranches.map { branch ->
                 locationManager.distance(lat, lon, branch.latitude, branch.longitude)
             }.minOrNull()
         }
-        val store = getStore(retailerId) ?: return null
-        val storeEmirate = com.example.data.uaeEmirates.find { store.emirates.contains(it.name, true) } ?: return null
-        return locationManager.distance(lat, lon, storeEmirate.lat, storeEmirate.lon)
+        return null
     }
 
     fun getNearestBranchAndDistance(retailerId: String): Pair<com.example.data.BranchEntity?, Double?> {
@@ -187,7 +188,7 @@ class DealFinderViewModel(private val repository: DealFinderRepository, private 
         val lat = userLoc?.first ?: fallbackEmirate?.lat ?: return Pair(null, null)
         val lon = userLoc?.second ?: fallbackEmirate?.lon ?: return Pair(null, null)
 
-        val storeBranches = branches.value.filter { it.retailerId == retailerId }
+        val storeBranches = branches.value.filter { it.retailerId == retailerId && it.isEligibleForDistance() }
         if (storeBranches.isNotEmpty()) {
             val nearest = storeBranches.minByOrNull { branch ->
                 locationManager.distance(lat, lon, branch.latitude, branch.longitude)

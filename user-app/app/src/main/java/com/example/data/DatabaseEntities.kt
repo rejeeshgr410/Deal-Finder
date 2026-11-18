@@ -46,6 +46,7 @@ data class FlyerEntity(
     val updatedAt: Long = 0L
 )
 
+@com.google.firebase.firestore.IgnoreExtraProperties
 data class ProductEntity(
     val id: String = "",
     val masterProductId: String = "",
@@ -66,7 +67,26 @@ data class ProductEntity(
     val validTo: Long = 0L,
     val status: String = "published",
     val createdAt: Long = 0L,
-    val updatedAt: Long = 0L
+    val updatedAt: Long = 0L,
+    // Additive Schema V2 fields (nullable/defaulted for V1 backward compatibility)
+    val schemaVersion: Int = 1,
+    val amountMinor: Long? = null,
+    val comparisonPriceMinor: Long? = null,
+    val baseQuantity: Double? = null,
+    val baseUnit: String? = null,
+    val packCount: Int = 1,
+    val minUnits: Int = 1,
+    val buyUnits: Int? = null,
+    val freeUnits: Int? = null,
+    val loyaltyRequired: Boolean = false,
+    val couponRequired: Boolean = false,
+    val promoConditions: String = "",
+    val availability: String = "unknown",
+    val sourceType: String = "",
+    val sourceLabel: String = "",
+    val verificationLabel: String = "unverified",
+    val lastVerifiedAt: Long? = null,
+    val isDemo: Boolean = false
 )
 
 fun ProductEntity.isIdenticalTo(other: ProductEntity): Boolean {
@@ -177,6 +197,7 @@ data class CouponEntity(
     val updatedAt: Long = 0L
 )
 
+@com.google.firebase.firestore.IgnoreExtraProperties
 data class BranchEntity(
     val id: String = "",
     val retailerId: String = "",
@@ -186,7 +207,9 @@ data class BranchEntity(
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
     val phone: String = "",
-    val openingHours: String = ""
+    val openingHours: String = "",
+    val coordsVerified: Boolean = false,
+    val coordSource: String = ""
 )
 
 data class PromotionEntity(

@@ -14,6 +14,9 @@ async function seedData() {
   const cred = await signInWithEmailAndPassword(auth, email, password);
   console.log("Authenticated as:", cred.user.email, cred.user.uid);
 
+  const importRunId = `demo-seed-${new Date().toISOString()}`;
+  console.log("Import Run ID (DEMO ONLY):", importRunId);
+
   // Read shops.json
   const shopsRaw = fs.readFileSync(path.join(D4D_DIR, 'shops.json'), 'utf-8');
   const shops = JSON.parse(shopsRaw);
@@ -81,10 +84,14 @@ async function seedData() {
         name: bName.includes('Branch') ? bName : `${bName} Branch`,
         emirate: 'Dubai',
         address: `${bName}, Dubai, United Arab Emirates`,
-        latitude: 25.10 + (Math.random() * 0.15),
-        longitude: 55.15 + (Math.random() * 0.20),
-        phone: shop.phone || '+971 4 000 0000',
-        openingHours: '8:00 AM - 11:30 PM'
+        latitude: null,
+        longitude: null,
+        coordsVerified: false,
+        coordSource: 'unverified_seed',
+        isDemo: true,
+        importRunId,
+        phone: shop.phone || '',
+        openingHours: ''
       };
 
       batch.set(branchRef, branchData);
@@ -120,8 +127,11 @@ async function seedData() {
       searchKeywords: Array.from(new Set(titleKeywords)),
       validFrom: isNaN(validFrom) ? Date.now() : validFrom,
       validTo: isNaN(validTo) ? (Date.now() + 10 * 86400000) : validTo,
-      views: Math.floor(100 + Math.random() * 400),
-      clicks: Math.floor(15 + Math.random() * 80),
+      views: 0,
+      clicks: 0,
+      sourceType: 'demo',
+      isDemo: true,
+      importRunId,
       createdAt: Date.now(),
       updatedAt: Date.now()
     };
@@ -383,7 +393,17 @@ async function seedData() {
         unitType: master.unitType,
         validFrom: Date.now() - 2 * 86400000,
         validTo: Date.now() + 14 * 86400000,
-        status: 'published'
+        status: 'published',
+        schemaVersion: 2,
+        currency: 'AED',
+        amountMinor: Math.round(priceInfo.current * 100),
+        comparisonPriceMinor: priceInfo.old > priceInfo.current ? Math.round(priceInfo.old * 100) : null,
+        availability: 'unknown',
+        sourceType: 'demo',
+        sourceLabel: 'Demo Sample Seed',
+        verificationLabel: 'unverified',
+        isDemo: true,
+        importRunId
       };
 
       batch.set(prodRef, prodData);
