@@ -95,6 +95,44 @@ fun NotificationSettingsScreen(
                         }
                     }
                 }
+                item {
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                "Notification Consent & Opt-Out",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                "Marketing and promotional alerts are optional. You can opt out per category below or disable all alerts at any time; preferences are enforced server-side before dispatch.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            OutlinedButton(
+                                onClick = {
+                                    currentUser?.let { u ->
+                                        authViewModel.updateUserPreferences(
+                                            u.copy(
+                                                notifyNewFlyers = false,
+                                                notifyPriceDrops = false,
+                                                notifyDealExpiry = false,
+                                                notifyPromotions = false,
+                                                notifyCouponExpiry = false
+                                            )
+                                        )
+                                    }
+                                },
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text("Unsubscribe from All Categories")
+                            }
+                        }
+                    }
+                }
             }
         }
     }

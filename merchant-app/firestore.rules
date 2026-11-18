@@ -246,7 +246,7 @@ service cloud.firestore {
 
     match /notifications/{notificationId} {
       allow read: if isModerator()
-        || (isSignedIn() && resource.data.targetType == 'broadcast' && resource.data.status in ['accepted_by_provider', 'sent']);
+        || (isSignedIn() && resource.data.targetType == 'broadcast' && resource.data.status in ['accepted_by_provider', 'dispatched_to_provider', 'sent']);
       allow create, update, delete: if false; // Trusted backend Admin SDK only
     }
 
@@ -273,6 +273,11 @@ service cloud.firestore {
     }
 
     match /notificationDeliveries/{deliveryId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create, update, delete: if false; // Trusted backend Admin SDK only
+    }
+
+    match /notificationEvents/{eventId} {
       allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
       allow create, update, delete: if false; // Trusted backend Admin SDK only
     }

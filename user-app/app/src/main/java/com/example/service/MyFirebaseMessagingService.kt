@@ -14,12 +14,27 @@ import kotlin.random.Random
 
 class MyFirebaseMessagingService : FirebaseMessagingService() {
 
+    companion object {
+        const val CHANNEL_FLYERS = "dealfinder_flyers"
+        const val CHANNEL_PROMOTIONS = "dealfinder_promotions"
+        const val CHANNEL_GENERAL = "dealfinder_general"
+
+        /**
+         * Revokes the current device's FCM token from Firestore on logout or account deletion.
+         */
+        fun revokeTokenForCurrentUser(token: String) {
+            if (token.isBlank()) return
+            com.example.data.FirebaseManager.getDb()
+                .collection("fcmTokens")
+                .document(token)
+                .delete()
+        }
+    }
+
     override fun onNewToken(token: String) {
         super.onNewToken(token)
         val uid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: return
-        // Use the shared named database via FirebaseManager, and write to the TOP-LEVEL
-        // `fcmTokens` collection (keyed by token) so the business/admin app can find this
-        // device when sending push notifications (it queries fcmTokens where status == 'active').
+        // Owner-scoped registration without email/PII; matches firestore.rules allowlist.
         com.example.data.FirebaseManager.getDb()
             .collection("fcmTokens").document(token)
             .set(
@@ -38,12 +53,13 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         val title = remoteMessage.notification?.title ?: remoteMessage.data["title"] ?: "DealFinder Update"
         val body = remoteMessage.notification?.body ?: remoteMessage.data["body"] ?: ""
-        val route = remoteMessage.data["route"] ?: "home" // Deep link route
+        val route = remoteMessage.data["route"] ?: "home"
+        val alertType = remoteMessage.data["alertType"] ?: "general"
 
-        sendNotification(title, body, route)
+        sendNotification(title, body, route, alertType)
     }
 
-    private fun sendNotification(title: String, body: String, route: String) {
+    private fun sendNotification(title: String, body: String, route: String, alertType: String) {
         val intent = Intent(this, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             putExtra("route", route)
@@ -53,7 +69,12 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val channelId = "dealfinder_general"
+        val (channelId, channelName) = when (alertType) {
+            "flyer_launch", "retailer_update" -> CHANNEL_FLYERS to "New Flyers & Store Updates"
+            "promotion", "coupon" -> CHANNEL_PROMOTIONS to "Promotions & Coupons"
+            else -> CHANNEL_GENERAL to "General Updates"
+        }
+
         val notificationBuilder = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
@@ -66,7 +87,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
-                "General Notifications",
+                channelName,
                 NotificationManager.IMPORTANCE_DEFAULT
             )
             notificationManager.createNotificationChannel(channel)

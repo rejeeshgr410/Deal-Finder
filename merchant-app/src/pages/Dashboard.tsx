@@ -1,24 +1,16 @@
-import React, { useState } from 'react';
-import { Users, FileText, ScanLine, DollarSign, TrendingUp, TrendingDown, Store, Tag, Package, BarChart2, Download, Calendar } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { FileText, ScanLine, Store, Tag, Package, BarChart2, Download, Calendar, Info } from 'lucide-react';
 import { useCollection } from '../lib/firebase-hooks';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { where } from 'firebase/firestore';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line, AreaChart, Area } from 'recharts';
-
-const performanceData = [
-  { name: 'Jan', views: 400, searches: 240, clicks: 140 },
-  { name: 'Feb', views: 300, searches: 139, clicks: 221 },
-  { name: 'Mar', views: 500, searches: 480, clicks: 229 },
-  { name: 'Apr', views: 478, searches: 390, clicks: 200 },
-  { name: 'May', views: 589, searches: 480, clicks: 218 },
-  { name: 'Jun', views: 439, searches: 380, clicks: 250 },
-];
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user, isAdminUser, isRetailerUser } = useAuth();
   const tenantFilter = isRetailerUser && user.retailerId ? [where('retailerId', '==', user.retailerId)] : [];
+  const analyticsFilter = isRetailerUser && user.retailerId ? [where('tenantId', '==', user.retailerId)] : [];
   const filterKey = `${user.role || ''}:${user.retailerId || ''}`;
   const { data: retailers, loading: loadingRetailers } = useCollection<any>('retailers', {
     constraints: isRetailerUser ? [where('status', '==', 'published')] : [],
@@ -40,13 +32,18 @@ export default function Dashboard() {
     enabled: Boolean(user.role),
     filterKey
   });
+  const { data: rawAnalytics } = useCollection<any>('analytics', {
+    constraints: analyticsFilter,
+    enabled: Boolean(user.role),
+    filterKey
+  });
 
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
   // Admin Data
-  const activeRetailersCount = retailers.filter((r: any) => r.status === 'Active' || !r.status).length;
-  const pendingFlyers = allFlyers.filter((f: any) => ['processing', 'pending', 'pending_review', 'pending_admin_review', 'draft', 'ocr_review'].includes(f.status));
+  const activeRetailersCount = retailers.filter((r: any) => r.status === 'published' || r.status === 'Active').length;
+  const pendingFlyers = allFlyers.filter((f: any) => ['processing', 'pending', 'pending_review', 'pending_admin_review', 'draft', 'ocr_review', 'review_required'].includes(f.status));
   const pendingOcrCount = pendingFlyers.length;
 
   // Retailer Data
@@ -54,18 +51,47 @@ export default function Dashboard() {
   const retailerProducts = isRetailerUser ? allProducts.filter((p: any) => p.retailerId === user.retailerId) : [];
   const retailerPromotions = isRetailerUser ? allPromotions.filter((p: any) => p.retailerId === user.retailerId) : [];
 
+  const verifiedEvents = useMemo(() => {
+    const startMs = startDate ? new Date(startDate).getTime() : 0;
+    const endMs = endDate ? new Date(`${endDate}T23:59:59`).getTime() : Number.MAX_SAFE_INTEGER;
+    return rawAnalytics.filter((e: any) => {
+      if (e.isDemo || e.environment === 'demo') return false;
+      const ts = Number(e.occurredAt || e.timestamp || 0);
+      return ts >= startMs && ts <= endMs;
+    });
+  }, [rawAnalytics, startDate, endDate]);
+
+  const measuredViewsCount = useMemo(
+    () => verifiedEvents.filter((e: any) => (e.eventName || e.type) === 'flyer_view').length,
+    [verifiedEvents]
+  );
+
+  const filteredPerformanceData = useMemo(() => {
+    const buckets: Record<string, { name: string; views: number; clicks: number }> = {};
+    verifiedEvents.forEach((e: any) => {
+      const ts = Number(e.occurredAt || e.timestamp || 0);
+      if (!ts) return;
+      const dayKey = new Date(ts).toISOString().slice(0, 10);
+      if (!buckets[dayKey]) buckets[dayKey] = { name: dayKey, views: 0, clicks: 0 };
+      const name = e.eventName || e.type;
+      if (name === 'flyer_view') buckets[dayKey].views += 1;
+      if (name === 'product_click') buckets[dayKey].clicks += 1;
+    });
+    return Object.values(buckets).sort((a, b) => a.name.localeCompare(b.name));
+  }, [verifiedEvents]);
+
   const adminStats = [
     { label: 'Total Retailers', value: loadingRetailers ? '-' : retailers.length.toString(), trend: 'Live', isPositive: true },
-    { label: 'Active Retailers', value: loadingRetailers ? '-' : activeRetailersCount.toString(), trend: 'Live', isPositive: true },
-    { label: 'Active Flyers', value: loadingFlyers ? '-' : allFlyers.length.toString(), trend: 'Live', isPositive: true },
-    { label: 'Pending OCR', value: loadingFlyers ? '-' : pendingOcrCount.toString(), trend: 'Live', isPositive: false },
+    { label: 'Published Retailers', value: loadingRetailers ? '-' : activeRetailersCount.toString(), trend: 'Live', isPositive: true },
+    { label: 'Total Flyers', value: loadingFlyers ? '-' : allFlyers.length.toString(), trend: 'Live', isPositive: true },
+    { label: 'Pending Review', value: loadingFlyers ? '-' : pendingOcrCount.toString(), trend: 'Live', isPositive: pendingOcrCount === 0 },
   ];
 
   const retailerStats = [
     { label: 'My Flyers', value: loadingFlyers ? '-' : retailerFlyers.length.toString(), trend: 'Live', isPositive: true },
     { label: 'My Products', value: loadingProducts ? '-' : retailerProducts.length.toString(), trend: 'Live', isPositive: true },
     { label: 'Active Promotions', value: loadingPromotions ? '-' : retailerPromotions.length.toString(), trend: 'Live', isPositive: true },
-    { label: 'Total Views (Est.)', value: '1,240', trend: 'Live', isPositive: true },
+    { label: 'Verified Flyer Views', value: measuredViewsCount.toString(), trend: 'Measured', isPositive: true },
   ];
 
   const stats = isAdminUser ? adminStats : retailerStats;
@@ -74,66 +100,31 @@ export default function Dashboard() {
   const isDateInRange = (dateStr: string) => {
     if (!dateStr) return true;
     if (!startDate && !endDate) return true;
-    
-    // Attempt to parse standard dates
     let d = new Date(dateStr);
-    
-    // For manual generic strings fallback to true unless it starts with a valid year format
     if (isNaN(d.getTime())) {
       const match = dateStr.match(/\d{4}-\d{2}-\d{2}/);
-      if (match) {
-        d = new Date(match[0]);
-      } else {
-         return true; // Not a parseable date, include it
-      }
+      if (match) d = new Date(match[0]);
+      else return true;
     }
-
     const start = startDate ? new Date(startDate) : null;
     const end = endDate ? new Date(endDate) : null;
-    
     if (start && d < start) return false;
-    
     if (end) {
       const endDay = new Date(end);
       endDay.setHours(23, 59, 59, 999);
       if (d > endDay) return false;
     }
-    
     return true;
   };
 
-  const getFilteredPerformanceData = () => {
-    if (!startDate && !endDate) return performanceData;
-    
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    let startMonthIdx = 0;
-    let endMonthIdx = 11;
-    
-    if (startDate) {
-      startMonthIdx = new Date(startDate).getMonth();
-    }
-    if (endDate) {
-      endMonthIdx = new Date(endDate).getMonth();
-    }
-    
-    // In case filtering from mock data where year is not specified, just use month index
-    return performanceData.filter(d => {
-      const idx = monthNames.indexOf(d.name);
-      return idx >= startMonthIdx && idx <= endMonthIdx;
-    });
-  };
-  
-  const filteredPerformanceData = getFilteredPerformanceData();
-
   const handleExportCSV = () => {
     let csvContent = "data:text/csv;charset=utf-8,";
-    
     if (isRetailerUser) {
-      csvContent += "Performance Report\n";
+      csvContent += "Verified Engagement Report\n";
       csvContent += `Period: ${startDate || 'All Time'} to ${endDate || 'All Time'}\n\n`;
-      csvContent += "Month,Views,Searches,Clicks\n";
+      csvContent += "Date,Verified Flyer Views,Product Clicks\n";
       filteredPerformanceData.forEach(row => {
-        csvContent += `${row.name},${row.views},${row.searches},${row.clicks}\n`;
+        csvContent += `${row.name},${row.views},${row.clicks}\n`;
       });
       csvContent += "\nMy Flyers Overview\n";
       csvContent += "Title,Status,Date\n";
@@ -148,11 +139,11 @@ export default function Dashboard() {
         csvContent += `"${stat.label}","${stat.value}"\n`;
       });
       csvContent += "\nAll Retailers\n";
-      csvContent += "Name,Email,Status,Branches\n";
+      csvContent += "Name,Status,Branches\n";
       retailers.forEach((r: any) => {
-        csvContent += `"${r.name || ''}","${r.email || ''}","${r.status || ''}","${r.branches || 0}"\n`;
+        csvContent += `"${r.name || ''}","${r.status || ''}","${r.branches || 0}"\n`;
       });
-      csvContent += "\nPending OCR Flyers\n";
+      csvContent += "\nPending Review Flyers\n";
       csvContent += "Title,Retailer,Status\n";
       pendingFlyers.filter((f: any) => isDateInRange(f.uploadDate || f.validFrom)).forEach((f: any) => {
         csvContent += `"${f.title || ''}","${f.retailerId || ''}","${f.status || ''}"\n`;
@@ -298,46 +289,40 @@ export default function Dashboard() {
           <div className="absolute -right-20 -bottom-20 sm:-top-20 w-64 h-64 bg-indigo-600 rounded-full blur-[80px] opacity-30 pointer-events-none"></div>
         </div>
 
-        {/* Performance Metrics (Retailer Only) */}
+        {/* Verified Engagement Metrics (Retailer Only) */}
         {isRetailerUser && (
-          <div className="sm:col-span-2 lg:col-span-4 bg-white rounded-3xl border border-slate-200 overflow-hidden flex flex-col p-5 min-h-[400px] mt-2">
+          <div className="sm:col-span-2 lg:col-span-4 bg-white rounded-3xl border border-slate-200 overflow-hidden flex flex-col p-5 min-h-[340px] mt-2">
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center text-green-600">
                   <BarChart2 className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900">Performance Metrics</h3>
-                  <p className="text-xs text-slate-500">Monthly flyer views, product search frequency, and promotion clicks</p>
+                  <h3 className="font-bold text-slate-900">Verified Engagement Metrics</h3>
+                  <p className="text-xs text-slate-500">Daily measured flyer views and product clicks from backend analytics</p>
                 </div>
               </div>
             </div>
-            <div className="flex-1 w-full h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={filteredPerformanceData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.1}/>
-                      <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="colorSearches" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.1}/>
-                      <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
-                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} />
-                  <Tooltip 
-                    contentStyle={{ borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                  />
-                  <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
-                  <Area type="monotone" name="Monthly Views" dataKey="views" stroke="#4f46e5" strokeWidth={3} fillOpacity={1} fill="url(#colorViews)" />
-                  <Area type="monotone" name="Search Frequency" dataKey="searches" stroke="#0ea5e9" strokeWidth={3} fillOpacity={1} fill="url(#colorSearches)" />
-                  <Line type="monotone" name="Click-Through Rate" dataKey="clicks" stroke="#f59e0b" strokeWidth={3} dot={{r: 4, strokeWidth: 2}} activeDot={{r: 6}} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+            {filteredPerformanceData.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-center text-slate-500 py-10">
+                <Info className="w-8 h-8 text-slate-300 mb-2" />
+                <p className="font-semibold text-slate-700">No verified data yet.</p>
+                <p className="text-xs mt-1">Measured engagement events will populate this chart automatically.</p>
+              </div>
+            ) : (
+              <div className="flex-1 w-full h-[260px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={filteredPerformanceData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
+                    <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dx={-10} />
+                    <Tooltip contentStyle={{ borderRadius: '16px', border: '1px solid #e2e8f0' }} />
+                    <Bar name="Verified Flyer Views" dataKey="views" fill="#4f46e5" radius={[6, 6, 0, 0]} />
+                    <Bar name="Product Clicks" dataKey="clicks" fill="#f59e0b" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </div>
         )}
       </div>
