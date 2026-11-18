@@ -3,18 +3,17 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, CheckCircle, Save, AlertTriangle, Image as ImageIcon, 
   Search, Plus, Trash2, ShieldCheck, X, Activity, Sparkles, 
-  ChevronLeft, ChevronRight, Settings, RefreshCw, ZoomIn, ZoomOut, Check
+  ChevronLeft, ChevronRight, RefreshCw, ZoomIn, ZoomOut, Check
 } from 'lucide-react';
 import { useCollection } from '../lib/firebase-hooks';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { findBestMasterMatch } from '../lib/matching';
 import { trackEvent } from '../lib/analytics';
+import { where } from 'firebase/firestore';
 import { 
   renderPdfToCanvases, 
   extractProductsFromCanvas, 
-  getStoredGeminiKey, 
-  saveStoredGeminiKey, 
   ExtractedProductItem 
 } from '../lib/flyerExtractor';
 
@@ -22,9 +21,13 @@ export default function OcrReview() {
   const { jobId } = useParams();
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { user, isAdminUser } = useAuth();
-  const { data: flyers, update: updateFlyer } = useCollection<any>('flyers');
-  const { add: addProduct } = useCollection('products');
+  const { user, isAdminUser, isRetailerUser } = useAuth();
+  const { data: flyers, update: updateFlyer } = useCollection<any>('flyers', {
+    constraints: isRetailerUser && user.retailerId ? [where('retailerId', '==', user.retailerId)] : [],
+    enabled: Boolean(user.role),
+    filterKey: `${user.role}:${user.retailerId || ''}`
+  });
+  const { add: addProduct } = useCollection('products', { enabled: false });
   const { data: masterProducts } = useCollection<any>('masterProducts');
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -46,10 +49,6 @@ export default function OcrReview() {
 
   // Zoom & Pan state
   const [zoomLevel, setZoomLevel] = useState(1.0);
-
-  // API Key Settings Modal
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [geminiApiKey, setGeminiApiKey] = useState(getStoredGeminiKey());
 
   const flyer = useMemo(() => flyers.find(f => f.id === jobId), [flyers, jobId]);
   const imageContainerRef = useRef<HTMLDivElement>(null);
@@ -121,7 +120,8 @@ export default function OcrReview() {
     try {
       const { products: extracted, engineUsed: engine } = await extractProductsFromCanvas(
         canvas,
-        geminiApiKey,
+        flyer?.retailerId || '',
+        flyer?.id || '',
         pageNum,
         msg => setOcrProgress(msg)
       );
@@ -307,12 +307,6 @@ export default function OcrReview() {
     }
   };
 
-  const handleSaveApiKey = () => {
-    saveStoredGeminiKey(geminiApiKey);
-    setShowSettingsModal(false);
-    showToast('Gemini API key saved! Future extractions will use Gemini 2.5 Flash.', 'success');
-  };
-
   if (!flyer) {
     return (
       <div className="flex-1 flex items-center justify-center p-12">
@@ -349,15 +343,6 @@ export default function OcrReview() {
         </div>
 
         <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
-          <button
-            onClick={() => setShowSettingsModal(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl font-semibold text-xs hover:bg-slate-50 shadow-xs"
-            title="Configure Free Gemini AI Key"
-          >
-            <Settings className="w-3.5 h-3.5 text-slate-500" />
-            AI Settings
-          </button>
-
           <button
             onClick={reRunExtraction}
             disabled={isOcrProcessing}
@@ -771,62 +756,6 @@ export default function OcrReview() {
           </div>
         </div>
       </div>
-
-      {/* Free Gemini AI Settings Modal */}
-      {showSettingsModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-indigo-600" />
-                <h3 className="font-bold text-base text-slate-900">AI Extraction Configuration</h3>
-              </div>
-              <button onClick={() => setShowSettingsModal(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-500 mb-4 leading-relaxed">
-              Google AI Studio provides <strong>Gemini 2.5 Flash 100% free</strong> with up to 1,500 requests/day.
-              Entering your free key allows pixel-perfect vision cropping and bilingual Arabic/English product extraction.
-            </p>
-
-            <div className="space-y-3 mb-5">
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1.5">
-                  Google AI Studio Free API Key
-                </label>
-                <input
-                  type="password"
-                  value={geminiApiKey}
-                  onChange={e => setGeminiApiKey(e.target.value)}
-                  placeholder="AIzaSy..."
-                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-indigo-500 outline-none"
-                />
-              </div>
-
-              <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-100 text-[11px] text-indigo-900">
-                <strong>No API Key?</strong> The app will automatically run using <strong>Smart Grid Client-Side OCR</strong> for free in your browser with zero setup required.
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2.5">
-              <button
-                onClick={() => setShowSettingsModal(false)}
-                className="px-4 py-2 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveApiKey}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 flex items-center gap-1.5 shadow-2xs"
-              >
-                <Check className="w-4 h-4" /> Save Configuration
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -4,9 +4,11 @@ import { Modal } from '../components/Modal';
 import { Users as UsersIcon, Search, MoreVertical, Edit2, ShieldAlert, Trash2, ShieldCheck, Mail, Activity, Ban, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../firebase';
 
 export default function Users() {
-  const { data: users, update, remove, loading } = useCollection<any>('users');
+  const { data: users, remove, loading } = useCollection<any>('users');
   const { data: retailers } = useCollection<any>('retailers');
   const [searchQuery, setSearchQuery] = useState('');
   const { user: currentUser } = useAuth();
@@ -52,16 +54,18 @@ export default function Users() {
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingUser) return;
-    
+
     try {
-      await update(editingUser.id, {
+      const assignRole = httpsCallable(functions, 'assignUserRole');
+      await assignRole({
+        targetUid: editingUser.id,
         role: formData.role,
-        status: formData.status,
-        retailerId: formData.retailerId || null
+        retailerId: formData.retailerId || null,
+        isSuspended: formData.status === 'suspended'
       });
-      showToast('User updated successfully', 'success');
-    } catch(err) {
-      showToast('Error updating user', 'error');
+      showToast('User role and claims updated via trusted backend', 'success');
+    } catch (err: any) {
+      showToast(err?.message || 'Error updating user role via backend', 'error');
     }
     setEditingUser(null);
   };

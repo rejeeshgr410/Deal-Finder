@@ -5,12 +5,23 @@ import { Modal } from '../components/Modal';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { trackEvent } from '../lib/analytics';
+import { where } from 'firebase/firestore';
 
 export default function Promotions() {
   const { user, isRetailerUser, isAdminUser } = useAuth();
   const { showToast } = useToast();
-  const { data: promotions, loading: promosLoading, add: addPromo, update: updatePromo, remove: removePromo } = useCollection<any>('promotions');
-  const { data: coupons, loading: couponsLoading, add: addCoupon, update: updateCoupon, remove: removeCoupon } = useCollection<any>('coupons');
+  const filterKey = `${user.role || ''}:${user.retailerId || ''}`;
+  const tenantFilter = isRetailerUser && user.retailerId ? [where('retailerId', '==', user.retailerId)] : [];
+  const { data: promotions, loading: promosLoading, add: addPromo, update: updatePromo, remove: removePromo } = useCollection<any>('promotions', {
+    constraints: tenantFilter,
+    enabled: Boolean(user.role),
+    filterKey
+  });
+  const { data: coupons, loading: couponsLoading, add: addCoupon, update: updateCoupon, remove: removeCoupon } = useCollection<any>('coupons', {
+    constraints: tenantFilter,
+    enabled: Boolean(user.role),
+    filterKey
+  });
   const loading = promosLoading || couponsLoading;
 
   const [searchQuery, setSearchQuery] = useState('');

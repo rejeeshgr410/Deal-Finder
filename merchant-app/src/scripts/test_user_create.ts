@@ -1,10 +1,11 @@
 import { auth, db } from '../firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
+import { assertStagingTarget, getStagingCredentials } from './_stagingEnv';
 
 async function main() {
-  const email = '***REDACTED_EMAIL***';
-  const pass = '***REDACTED_PASSWORD***';
+  assertStagingTarget('test_user_create');
+  const { email, password: pass } = getStagingCredentials();
   let uid: string;
   try {
     const cred = await createUserWithEmailAndPassword(auth, email, pass);

@@ -1,0 +1,90 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Canonical Storage rules rely on server-issued Firebase Auth custom claims
+    // (`role` and `retailerId`) because Storage rules' firestore.get() binding only
+    // accesses the (default) Firestore database, not the shared named database.
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function tokenRole() {
+      return ('role' in request.auth.token && request.auth.token.role is string)
+        ? request.auth.token.role
+        : 'consumer';
+    }
+
+    function tokenRetailerId() {
+      return ('retailerId' in request.auth.token && request.auth.token.retailerId is string)
+        ? request.auth.token.retailerId
+        : '';
+    }
+
+    function isModeratorOrDataEntry() {
+      let role = tokenRole();
+      return isSignedIn() && (
+        role == 'super_admin' ||
+        role == 'admin' ||
+        role == 'moderator' ||
+        role == 'data_entry'
+      );
+    }
+
+    function isRetailerStaffFor(retailerId) {
+      let role = tokenRole();
+      return isSignedIn()
+        && retailerId is string
+        && retailerId.size() > 0
+        && (role == 'retailer_owner' || role == 'retailer_staff')
+        && tokenRetailerId() == retailerId;
+    }
+
+    function canManageRetailer(retailerId) {
+      return isModeratorOrDataEntry() || isRetailerStaffFor(retailerId);
+    }
+
+    function isValidUpload() {
+      return request.resource != null
+        && request.resource.size > 0
+        && request.resource.size < 25 * 1024 * 1024
+        && (
+          request.resource.contentType == 'application/pdf' ||
+          request.resource.contentType == 'image/jpeg' ||
+          request.resource.contentType == 'image/png' ||
+          request.resource.contentType == 'image/webp'
+        );
+    }
+
+    // Publicly published flyer, product, and retailer branding assets
+    match /flyers/{retailerId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if canManageRetailer(retailerId) && isValidUpload();
+      allow delete: if canManageRetailer(retailerId);
+    }
+
+    match /products/{retailerId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if canManageRetailer(retailerId) && isValidUpload();
+      allow delete: if canManageRetailer(retailerId);
+    }
+
+    match /retailers/{retailerId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if canManageRetailer(retailerId) && isValidUpload();
+      allow delete: if canManageRetailer(retailerId);
+    }
+
+    // Private extraction staging uploads: never publicly readable
+    match /private_extractions/{retailerId}/{allPaths=**} {
+      allow read: if canManageRetailer(retailerId);
+      allow write: if canManageRetailer(retailerId) && isValidUpload();
+      allow delete: if canManageRetailer(retailerId);
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

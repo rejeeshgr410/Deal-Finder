@@ -10,7 +10,6 @@ import { trackEvent } from '../lib/analytics';
 export default function Retailers() {
   const { data: retailers, loading, add, update, remove } = useCollection<any>('retailers');
   const { data: users } = useCollection<any>('users');
-  const { add: addNotification } = useCollection<any>('notifications');
   const { showToast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [isAdding, setIsAdding] = useState(false);

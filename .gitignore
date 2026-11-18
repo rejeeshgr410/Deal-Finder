@@ -28,6 +28,9 @@ node_modules/
 **/node_modules/
 dist/
 **/dist/
+firebase/functions/lib/
+.firebase/
+**/.firebase/
 .vite/
 **/.vite/
 coverage/

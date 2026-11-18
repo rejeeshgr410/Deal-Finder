@@ -1,13 +1,12 @@
 import { auth, db } from '../firebase';
 import { signInAnonymously, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { collection, addDoc, doc, setDoc, getDocs } from 'firebase/firestore';
+import { assertStagingTarget, getStagingCredentials } from './_stagingEnv';
 
 async function testAuth() {
-  console.log("Testing Firebase Auth...");
-  
-  // 1. Try signing in with default test credentials or creating test user
-  const email = "***REDACTED_EMAIL***";
-  const testPass = "***REDACTED_PASSWORD***";
+  assertStagingTarget('test_auth_and_write');
+  const { email, password: testPass } = getStagingCredentials();
+  console.log("Testing Firebase Auth (Staging)...");
 
   let userCredential;
   try {

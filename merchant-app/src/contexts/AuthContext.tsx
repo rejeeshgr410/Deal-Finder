@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { auth, db } from '../firebase';
+import { auth, db, functions } from '../firebase';
 import { GoogleAuthProvider, signInWithCredential, signInWithPopup, signOut, onAuthStateChanged, User, signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { Capacitor } from '@capacitor/core';
 import { SocialLogin } from '@capgo/capacitor-social-login';
 
@@ -36,36 +37,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: User | null) => {
       if (firebaseUser) {
-        // Fetch user profile from Firestore
-        const userRef = doc(db, 'users', firebaseUser.uid);
-        const userSnap = await getDoc(userRef);
-        
-        let role: Role = 'pending'; // Default to pending if new
+        let role: Role = 'pending';
         let retailerId: string | null = null;
-        
-        if (firebaseUser.email === '***REDACTED_EMAIL***') {
-          role = 'super_admin';
+
+        try {
+          // Sync server-verified custom claims from trusted backend if available
+          const syncClaims = httpsCallable<{ clientType: string }, { role: string; retailerId: string | null }>(
+            functions,
+            'syncMyClaims'
+          );
+          const result = await syncClaims({ clientType: 'merchant_portal' });
+          await firebaseUser.getIdToken(true);
+          role = (result.data?.role as Role) || 'pending';
+          retailerId = result.data?.retailerId ?? null;
+        } catch {
+          // Fallback to server-controlled Firestore profile + existing token claims
+          const tokenResult = await firebaseUser.getIdTokenResult();
+          const userRef = doc(db, 'users', firebaseUser.uid);
+          const userSnap = await getDoc(userRef);
+
+          if (userSnap.exists()) {
+            const data = userSnap.data();
+            role = (tokenResult.claims.role as Role) || (data.role as Role) || 'pending';
+            retailerId = (tokenResult.claims.retailerId as string | null) || data.retailerId || null;
+          } else {
+            // Safe default provisioning only; never elevate by email or client state
+            role = 'pending';
+            await setDoc(userRef, {
+              email: firebaseUser.email ?? '',
+              role: 'pending',
+              isSuspended: false,
+              createdAt: Date.now(),
+              updatedAt: Date.now()
+            });
+          }
         }
 
-        // Get role from custom claims or firestore document
-        if (userSnap.exists()) {
-          const data = userSnap.data();
-          role = data.role || role;
-          retailerId = data.retailerId || null;
-          
-          if (firebaseUser.email === '***REDACTED_EMAIL***' && role !== 'super_admin') {
-             role = 'super_admin';
-             await setDoc(userRef, { role: 'super_admin' }, { merge: true });
-          }
-        } else {
-          // Auto-provision basic profile
-          await setDoc(userRef, {
-            email: firebaseUser.email,
-            role: role,
-            createdAt: Date.now()
-          });
-        }
-        
         setUser({ role, email: firebaseUser.email, retailerId, uid: firebaseUser.uid });
       } else {
         setUser({ role: null, email: null });

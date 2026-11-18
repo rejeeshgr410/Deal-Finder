@@ -1,10 +1,13 @@
 import { auth, db } from '../firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { collection, addDoc, doc, setDoc, getDocs, deleteDoc, query, where } from 'firebase/firestore';
+import { assertStagingTarget, getStagingCredentials } from './_stagingEnv';
 
 async function testMerchantPublish() {
-  console.log("Signing in as merchant admin...");
-  const cred = await signInWithEmailAndPassword(auth, '***REDACTED_EMAIL***', '***REDACTED_PASSWORD***');
+  assertStagingTarget('test_merchant_publish');
+  const { email, password } = getStagingCredentials();
+  console.log("Signing in as staging merchant admin...");
+  const cred = await signInWithEmailAndPassword(auth, email, password);
   console.log("Signed in with UID:", cred.user.uid);
 
   // 1. Test creating a Retailer

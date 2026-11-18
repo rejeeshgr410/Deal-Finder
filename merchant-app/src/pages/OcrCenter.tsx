@@ -1,26 +1,27 @@
 import { useState, useRef } from 'react';
-import { ScanLine, Upload, Camera, FileText, Settings, ArrowRight, Sparkles, X, Check, Activity } from 'lucide-react';
+import { ScanLine, Upload, Camera, FileText, ShieldCheck, ArrowRight, Sparkles, Activity } from 'lucide-react';
 import { useCollection } from '../lib/firebase-hooks';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useNavigate } from 'react-router-dom';
-import { renderPdfToCanvases, getStoredGeminiKey, saveStoredGeminiKey } from '../lib/flyerExtractor';
+import { renderPdfToCanvases } from '../lib/flyerExtractor';
 import { storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { where } from 'firebase/firestore';
 
 export default function OcrCenter() {
-  const { data: flyers, loading, add: addFlyer } = useCollection<any>('flyers');
-  const { user } = useAuth();
+  const { user, isRetailerUser } = useAuth();
+  const { data: flyers, loading, add: addFlyer } = useCollection<any>('flyers', {
+    constraints: isRetailerUser && user.retailerId ? [where('retailerId', '==', user.retailerId)] : [],
+    enabled: Boolean(user.role),
+    filterKey: `${user.role}:${user.retailerId || ''}`
+  });
   const { showToast } = useToast();
   const navigate = useNavigate();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isProcessingUpload, setIsProcessingUpload] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('');
-  
-  // AI Settings Modal
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [geminiApiKey, setGeminiApiKey] = useState(getStoredGeminiKey());
 
   const pendingJobs = flyers.filter(
     f => f.status === 'processing' || f.status === 'ocr_review' || f.status === 'draft' || f.status === 'pending_review' || f.status === 'pending'
@@ -28,6 +29,15 @@ export default function OcrCenter() {
 
   const handleFileSelected = async (file: File) => {
     if (!file) return;
+    if (!user?.retailerId) {
+      showToast('A verified retailerId is required before uploading flyers.', 'error');
+      return;
+    }
+    const maxBytes = 25 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      showToast('File exceeds the 25 MB upload limit.', 'error');
+      return;
+    }
 
     setIsProcessingUpload(true);
     setUploadStatus('Reading uploaded file...');
@@ -37,22 +47,11 @@ export default function OcrCenter() {
       let coverImageUrl = '';
       let fileUrl = '';
 
-      // Upload file to Firebase storage if online, or convert to DataURL
-      try {
-        setUploadStatus('Saving file...');
-        const storageRef = ref(storage, `flyers/${user?.retailerId || 'uploads'}/${Date.now()}_${file.name}`);
-        const snapshot = await uploadBytes(storageRef, file);
-        fileUrl = await getDownloadURL(snapshot.ref);
-      } catch (storageErr) {
-        console.warn('Storage upload fallback to Data URL:', storageErr);
-        // Fallback to Data URL
-        fileUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-      }
+      setUploadStatus('Uploading to secure tenant storage...');
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const storageRef = ref(storage, `private_extractions/${user.retailerId}/${Date.now()}_${safeName}`);
+      const snapshot = await uploadBytes(storageRef, file);
+      fileUrl = await getDownloadURL(snapshot.ref);
 
       // Generate cover thumbnail
       if (isPdf) {
@@ -70,7 +69,7 @@ export default function OcrCenter() {
 
       const newFlyerDoc = await addFlyer({
         title: cleanTitle,
-        retailerId: user?.retailerId || 'carrefour-uae-259',
+        retailerId: user.retailerId,
         status: 'ocr_review',
         pdfUrl: isPdf ? fileUrl : '',
         imageUrl: coverImageUrl || fileUrl,
@@ -93,12 +92,6 @@ export default function OcrCenter() {
       setUploadStatus('');
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
-  };
-
-  const handleSaveApiKey = () => {
-    saveStoredGeminiKey(geminiApiKey);
-    setShowSettingsModal(false);
-    showToast('Gemini API key saved! PDF extractions will use Gemini 2.5 Flash Vision.', 'success');
   };
 
   return (
@@ -126,13 +119,10 @@ export default function OcrCenter() {
           </p>
         </div>
 
-        <button
-          onClick={() => setShowSettingsModal(true)}
-          className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-700 bg-white rounded-xl hover:bg-slate-50 transition-colors font-semibold text-sm w-full sm:w-auto justify-center shadow-xs"
-        >
-          <Settings className="w-4 h-4 text-slate-500" />
-          OCR / AI Settings
-        </button>
+        <div className="flex items-center gap-2 px-3.5 py-2 border border-emerald-200 text-emerald-700 bg-emerald-50 rounded-xl font-semibold text-xs w-full sm:w-auto justify-center">
+          <ShieldCheck className="w-4 h-4 text-emerald-600" />
+          Server-Protected AI Extraction
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
@@ -273,62 +263,6 @@ export default function OcrCenter() {
           </div>
         </div>
       </div>
-
-      {/* Free Gemini AI Settings Modal */}
-      {showSettingsModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-indigo-600" />
-                <h3 className="font-bold text-base text-slate-900">OCR & AI Extraction Settings</h3>
-              </div>
-              <button onClick={() => setShowSettingsModal(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-500 mb-4 leading-relaxed">
-              Google AI Studio provides <strong>Gemini 2.5 Flash 100% free</strong> with 1,500 requests/day.
-              Entering your free key allows automatic visual cropping and bilingual Arabic/English product extraction.
-            </p>
-
-            <div className="space-y-3 mb-5">
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1.5">
-                  Google AI Studio Free API Key
-                </label>
-                <input
-                  type="password"
-                  value={geminiApiKey}
-                  onChange={e => setGeminiApiKey(e.target.value)}
-                  placeholder="AIzaSy..."
-                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-indigo-500 outline-none"
-                />
-              </div>
-
-              <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-100 text-[11px] text-indigo-900">
-                <strong>No API Key?</strong> The app will automatically run using <strong>Smart Grid Client-Side OCR</strong> for free in your browser with zero setup required.
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2.5">
-              <button
-                onClick={() => setShowSettingsModal(false)}
-                className="px-4 py-2 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveApiKey}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 flex items-center gap-1.5 shadow-2xs"
-              >
-                <Check className="w-4 h-4" /> Save Settings
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

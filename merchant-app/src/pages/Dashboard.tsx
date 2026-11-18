@@ -3,6 +3,7 @@ import { Users, FileText, ScanLine, DollarSign, TrendingUp, TrendingDown, Store,
 import { useCollection } from '../lib/firebase-hooks';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { where } from 'firebase/firestore';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line, AreaChart, Area } from 'recharts';
 
 const performanceData = [
@@ -17,10 +18,28 @@ const performanceData = [
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user, isAdminUser, isRetailerUser } = useAuth();
-  const { data: retailers, loading: loadingRetailers } = useCollection<any>('retailers');
-  const { data: allFlyers, loading: loadingFlyers } = useCollection<any>('flyers');
-  const { data: allProducts, loading: loadingProducts } = useCollection<any>('products');
-  const { data: allPromotions, loading: loadingPromotions } = useCollection<any>('promotions');
+  const tenantFilter = isRetailerUser && user.retailerId ? [where('retailerId', '==', user.retailerId)] : [];
+  const filterKey = `${user.role || ''}:${user.retailerId || ''}`;
+  const { data: retailers, loading: loadingRetailers } = useCollection<any>('retailers', {
+    constraints: isRetailerUser ? [where('status', '==', 'published')] : [],
+    enabled: Boolean(user.role),
+    filterKey
+  });
+  const { data: allFlyers, loading: loadingFlyers } = useCollection<any>('flyers', {
+    constraints: tenantFilter,
+    enabled: Boolean(user.role),
+    filterKey
+  });
+  const { data: allProducts, loading: loadingProducts } = useCollection<any>('products', {
+    constraints: tenantFilter,
+    enabled: Boolean(user.role),
+    filterKey
+  });
+  const { data: allPromotions, loading: loadingPromotions } = useCollection<any>('promotions', {
+    constraints: tenantFilter,
+    enabled: Boolean(user.role),
+    filterKey
+  });
 
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');

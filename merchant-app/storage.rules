@@ -2,44 +2,85 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // NOTE ON ROLE CHECKS:
-    // Firestore user/role data lives in a NAMED database
-    // ("ai-studio-86ad9cb9-2ca7-45ce-90e1-07624002c096"), but Storage rules'
-    // firestore.get() binding can ONLY read the (default) database. There is no
-    // way to point firestore.get() at a named database, so we cannot look up the
-    // caller's role here. Until roles are mirrored into Auth custom claims, writes
-    // are gated on authentication only. This is acceptable because:
-    //   1. Only internal staff can sign into the business/admin web app, which is
-    //      the only client with UI to write to flyers/products/retailers paths.
-    //   2. Firestore security rules still independently enforce per-role checks on
-    //      the corresponding flyer/product/retailer DOCUMENTS.
-    // TODO: harden by setting custom claims (request.auth.token.role) on user
-    // creation in the admin flow, then restore role-based write checks below.
+    // Canonical Storage rules rely on server-issued Firebase Auth custom claims
+    // (`role` and `retailerId`) because Storage rules' firestore.get() binding only
+    // accesses the (default) Firestore database, not the shared named database.
 
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Basic file hygiene for uploads (images / PDFs, capped size).
-    function isValidUpload() {
-      return request.resource.size < 25 * 1024 * 1024
-        && (request.resource.contentType.matches('image/.*')
-            || request.resource.contentType == 'application/pdf');
+    function tokenRole() {
+      return ('role' in request.auth.token && request.auth.token.role is string)
+        ? request.auth.token.role
+        : 'consumer';
     }
 
+    function tokenRetailerId() {
+      return ('retailerId' in request.auth.token && request.auth.token.retailerId is string)
+        ? request.auth.token.retailerId
+        : '';
+    }
+
+    function isModeratorOrDataEntry() {
+      let role = tokenRole();
+      return isSignedIn() && (
+        role == 'super_admin' ||
+        role == 'admin' ||
+        role == 'moderator' ||
+        role == 'data_entry'
+      );
+    }
+
+    function isRetailerStaffFor(retailerId) {
+      let role = tokenRole();
+      return isSignedIn()
+        && retailerId is string
+        && retailerId.size() > 0
+        && (role == 'retailer_owner' || role == 'retailer_staff')
+        && tokenRetailerId() == retailerId;
+    }
+
+    function canManageRetailer(retailerId) {
+      return isModeratorOrDataEntry() || isRetailerStaffFor(retailerId);
+    }
+
+    function isValidUpload() {
+      return request.resource != null
+        && request.resource.size > 0
+        && request.resource.size < 25 * 1024 * 1024
+        && (
+          request.resource.contentType == 'application/pdf' ||
+          request.resource.contentType == 'image/jpeg' ||
+          request.resource.contentType == 'image/png' ||
+          request.resource.contentType == 'image/webp'
+        );
+    }
+
+    // Publicly published flyer, product, and retailer branding assets
     match /flyers/{retailerId}/{allPaths=**} {
-      allow read: if true; // consumers can read flyers
-      allow write: if isSignedIn() && isValidUpload();
+      allow read: if true;
+      allow write: if canManageRetailer(retailerId) && isValidUpload();
+      allow delete: if canManageRetailer(retailerId);
     }
 
     match /products/{retailerId}/{allPaths=**} {
       allow read: if true;
-      allow write: if isSignedIn() && isValidUpload();
+      allow write: if canManageRetailer(retailerId) && isValidUpload();
+      allow delete: if canManageRetailer(retailerId);
     }
 
     match /retailers/{retailerId}/{allPaths=**} {
       allow read: if true;
-      allow write: if isSignedIn() && isValidUpload();
+      allow write: if canManageRetailer(retailerId) && isValidUpload();
+      allow delete: if canManageRetailer(retailerId);
+    }
+
+    // Private extraction staging uploads: never publicly readable
+    match /private_extractions/{retailerId}/{allPaths=**} {
+      allow read: if canManageRetailer(retailerId);
+      allow write: if canManageRetailer(retailerId) && isValidUpload();
+      allow delete: if canManageRetailer(retailerId);
     }
 
     match /{allPaths=**} {

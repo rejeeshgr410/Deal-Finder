@@ -1,6 +1,7 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import { createWorker } from 'tesseract.js';
-import { GoogleGenAI, Type } from '@google/genai';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../firebase';
 
 // Set up PDF.js worker
 if (typeof window !== 'undefined' && pdfjsLib.GlobalWorkerOptions) {
@@ -17,9 +18,13 @@ export interface ExtractedProductItem {
   unitSize: string;
   unitType: string;
   discount: string;
+  promoConditions?: string;
   imageUrl: string; // Cropped product image data URL
   box2d?: [number, number, number, number]; // [ymin, xmin, ymax, xmax] 0-1000
   confidence: number;
+  reviewReasons?: string[];
+  modelName?: string;
+  promptRevision?: string;
   sourcePage: number;
   isEdit?: boolean;
 }
@@ -106,15 +111,15 @@ export function cropProductFromCanvas(
 }
 
 /**
- * Extract products and exact bounding boxes using Gemini 2.5 Flash Free Tier.
+ * Extract products and bounding boxes via trusted backend Cloud Function (`extractFlyerPage`).
+ * No Gemini API key is stored or invoked from the browser.
  */
 export async function extractWithGeminiVision(
   canvas: HTMLCanvasElement,
-  apiKey: string,
+  retailerId: string,
+  flyerId: string,
   pageNumber: number = 1
 ): Promise<ExtractedProductItem[]> {
-  const ai = new GoogleGenAI({ apiKey });
-
   // Get base64 JPEG from canvas (max 1600px dimension for fast transmission)
   const maxDim = 1600;
   let exportCanvas = canvas;
@@ -129,76 +134,47 @@ export async function extractWithGeminiVision(
 
   const base64Data = exportCanvas.toDataURL('image/jpeg', 0.85).replace(/^data:image\/jpeg;base64,/, '');
 
-  const prompt = `
-You are an expert retail flyer OCR and visual product extraction AI.
-Analyze this supermarket flyer page from Dubai/UAE.
-Identify every distinct promotional product deal shown on the page.
-
-For each product deal:
-1. "name": Full English product name (e.g., "Almarai Fresh Milk Full Cream", "Coca Cola Can 330ml Pack of 6").
-2. "brand": Brand name (e.g., "Almarai", "Coca Cola", "Tide", "Apple").
-3. "category": One of "Drinks & Beverages", "Dairy & Eggs", "Chicken, Meat & Fish", "Food - Grocery", "Laundry & Cleaning", "Health & Beauty", "Electronics", "Fresh Produce", or "General".
-4. "currentPrice": Numeric promotional price in AED (e.g. 10.50).
-5. "oldPrice": Numeric original / strike-through price in AED if visible, otherwise 0.
-6. "unitSize": Numeric quantity or volume size if specified (e.g. "2", "330", "1").
-7. "unitType": Unit abbreviation (e.g. "L", "ml", "kg", "g", "pcs", "pack").
-8. "discount": Discount percentage string (e.g. "20%") if indicated, otherwise "".
-9. "box2d": The exact 2D bounding box enclosing the entire product card (including the product photo and price tag) normalized to 0-1000 coordinates as [ymin, xmin, ymax, xmax].
-
-Return the list of products in the required JSON format.
-`;
-
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: [
-      {
-        inlineData: {
-          mimeType: 'image/jpeg',
-          data: base64Data
-        }
-      },
-      { text: prompt }
-    ],
-    config: {
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          products: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                name: { type: Type.STRING },
-                brand: { type: Type.STRING },
-                category: { type: Type.STRING },
-                currentPrice: { type: Type.NUMBER },
-                oldPrice: { type: Type.NUMBER },
-                unitSize: { type: Type.STRING },
-                unitType: { type: Type.STRING },
-                discount: { type: Type.STRING },
-                box2d: {
-                  type: Type.ARRAY,
-                  items: { type: Type.INTEGER },
-                  description: '[ymin, xmin, ymax, xmax] coordinates from 0 to 1000'
-                }
-              },
-              required: ['name', 'currentPrice', 'box2d']
-            }
-          }
-        },
-        required: ['products']
-      }
+  const extractCallable = httpsCallable<
+    {
+      retailerId: string;
+      flyerId: string;
+      pageNumber: number;
+      mimeType: 'image/jpeg';
+      imageBase64: string;
+    },
+    {
+      products: Array<{
+        name: string;
+        brand: string;
+        category: string;
+        currentPrice: number;
+        oldPrice: number;
+        unitSize: string;
+        unitType: string;
+        discount: string;
+        promoConditions: string;
+        box2d: [number, number, number, number];
+        sourcePage: number;
+        reviewReasons: string[];
+        modelName: string;
+        promptRevision: string;
+      }>;
     }
+  >(functions, 'extractFlyerPage');
+
+  const res = await extractCallable({
+    retailerId,
+    flyerId,
+    pageNumber,
+    mimeType: 'image/jpeg',
+    imageBase64: base64Data
   });
 
-  const parsed = JSON.parse(response.text || '{"products":[]}');
-  const rawProducts: any[] = parsed.products || [];
+  const rawProducts = res.data?.products || [];
 
   return rawProducts.map((p, idx) => {
-    const box2d: [number, number, number, number] = (Array.isArray(p.box2d) && p.box2d.length === 4)
-      ? [p.box2d[0], p.box2d[1], p.box2d[2], p.box2d[3]]
-      : [100, 100, 400, 400];
+    const box2d: [number, number, number, number] =
+      Array.isArray(p.box2d) && p.box2d.length === 4 ? p.box2d : [100, 100, 400, 400];
 
     const croppedImage = cropProductFromCanvas(canvas, box2d);
 
@@ -207,14 +183,18 @@ Return the list of products in the required JSON format.
       name: p.name || 'Unnamed Product',
       brand: p.brand || '',
       category: p.category || 'General',
-      currentPrice: typeof p.currentPrice === 'number' ? p.currentPrice : parseFloat(p.currentPrice) || 0,
-      oldPrice: typeof p.oldPrice === 'number' ? p.oldPrice : parseFloat(p.oldPrice) || 0,
+      currentPrice: typeof p.currentPrice === 'number' ? p.currentPrice : 0,
+      oldPrice: typeof p.oldPrice === 'number' ? p.oldPrice : 0,
       unitSize: p.unitSize ? String(p.unitSize) : '',
       unitType: p.unitType || '',
       discount: p.discount || '',
+      promoConditions: p.promoConditions || '',
       imageUrl: croppedImage,
       box2d,
-      confidence: 96,
+      confidence: (p.reviewReasons?.length ?? 0) === 0 ? 85 : 60,
+      reviewReasons: p.reviewReasons || [],
+      modelName: p.modelName,
+      promptRevision: p.promptRevision,
       sourcePage: pageNumber,
       isEdit: false
     };
@@ -355,52 +335,30 @@ export async function extractWithSmartGridOcr(
 
 /**
  * Universal auto-extraction function:
- * Automatically uses Gemini Vision if an API key is available,
- * otherwise seamlessly falls back to client-side Smart Grid OCR.
+ * Uses trusted backend Gemini Vision when available,
+ * otherwise falls back to client-side Smart Grid OCR (OCR-only).
  */
 export async function extractProductsFromCanvas(
   canvas: HTMLCanvasElement,
-  apiKey?: string,
+  retailerId: string,
+  flyerId: string,
   pageNumber: number = 1,
   onProgress?: (msg: string) => void
 ): Promise<{ products: ExtractedProductItem[]; engineUsed: 'gemini' | 'tesseract' }> {
-  const effectiveKey = apiKey || getStoredGeminiKey();
-
-  if (effectiveKey) {
+  if (retailerId && flyerId) {
     try {
-      onProgress?.('Extracting products & bounding boxes with Gemini AI (Free)...');
-      const products = await extractWithGeminiVision(canvas, effectiveKey, pageNumber);
+      onProgress?.('Extracting products via protected server AI pipeline...');
+      const products = await extractWithGeminiVision(canvas, retailerId, flyerId, pageNumber);
       if (products && products.length > 0) {
         return { products, engineUsed: 'gemini' };
       }
     } catch (err: any) {
-      console.warn('Gemini vision extraction failed, falling back to local OCR:', err.message);
-      onProgress?.('Gemini failed or rate limited. Falling back to local OCR...');
+      console.warn('Backend Gemini extraction unavailable, falling back to local OCR:', err?.message);
+      onProgress?.('Server AI unavailable or rate limited. Falling back to local OCR (OCR-only)...');
     }
   }
 
-  // Offline fallback
+  // Offline / OCR-only fallback
   const products = await extractWithSmartGridOcr(canvas, pageNumber, onProgress);
   return { products, engineUsed: 'tesseract' };
-}
-
-/**
- * Helpers for managing Gemini API Key in localStorage.
- */
-export const GEMINI_API_KEY_STORAGE = 'dealfinder_gemini_api_key';
-
-export function getStoredGeminiKey(): string {
-  if (typeof window === 'undefined') return '';
-  return (
-    localStorage.getItem(GEMINI_API_KEY_STORAGE) ||
-    (import.meta as any).env?.VITE_GEMINI_API_KEY ||
-    (typeof process !== 'undefined' ? process.env?.GEMINI_API_KEY : '') ||
-    ''
-  );
-}
-
-export function saveStoredGeminiKey(key: string): void {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(GEMINI_API_KEY_STORAGE, key.trim());
-  }
 }

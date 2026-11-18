@@ -6,13 +6,23 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { normalizeString, calculateWordOverlap, calculateLevenshteinSimilarity, extractUnit, findBestMasterMatch } from '../lib/matching';
 import { trackEvent } from '../lib/analytics';
+import { where } from 'firebase/firestore';
 
 export default function Products() {
   const { user, isAdminUser, isRetailerUser } = useAuth();
   const { showToast } = useToast();
-  const { data: allProducts, loading, add, update, remove } = useCollection<any>('products');
+  const filterKey = `${user.role || ''}:${user.retailerId || ''}`;
+  const { data: allProducts, loading, add, update, remove } = useCollection<any>('products', {
+    constraints: isRetailerUser && user.retailerId ? [where('retailerId', '==', user.retailerId)] : [],
+    enabled: Boolean(user.role),
+    filterKey
+  });
   const { data: masterProducts, add: addMaster, update: updateMaster, remove: removeMaster } = useCollection<any>('masterProducts');
-  const { data: retailers } = useCollection<any>('retailers');
+  const { data: retailers } = useCollection<any>('retailers', {
+    constraints: isRetailerUser ? [where('status', '==', 'published')] : [],
+    enabled: Boolean(user.role),
+    filterKey
+  });
   const [activeTab, setActiveTab] = useState<'offers' | 'master' | 'unmatched'>('offers');
   const [searchQuery, setSearchQuery] = useState('');
   const [isAdding, setIsAdding] = useState(false);

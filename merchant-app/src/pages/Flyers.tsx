@@ -34,8 +34,17 @@ const StatusBadge = ({ status }: { status: string }) => {
 export default function Flyers() {
   const { user, isAdminUser, isRetailerUser } = useAuth();
   const { showToast } = useToast();
-  const { data: allFlyers, loading, add, remove, update } = useCollection<any>('flyers');
-  const { data: retailers } = useCollection<any>('retailers');
+  const filterKey = `${user.role || ''}:${user.retailerId || ''}`;
+  const { data: allFlyers, loading, add, remove, update } = useCollection<any>('flyers', {
+    constraints: isRetailerUser && user.retailerId ? [where('retailerId', '==', user.retailerId)] : [],
+    enabled: Boolean(user.role),
+    filterKey
+  });
+  const { data: retailers } = useCollection<any>('retailers', {
+    constraints: isRetailerUser ? [where('status', '==', 'published')] : [],
+    enabled: Boolean(user.role),
+    filterKey
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [newFlyer, setNewFlyer] = useState({ title: '', status: 'processing', validFrom: '', validTo: '' });

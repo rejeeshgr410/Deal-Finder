@@ -1,11 +1,14 @@
 import { db, auth } from '../firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { collection, getDocs, doc, writeBatch } from 'firebase/firestore';
+import { assertStagingTarget, getStagingCredentials } from './_stagingEnv';
 
 async function updateRealImages() {
+  assertStagingTarget('update_real_images');
+  const { email, password } = getStagingCredentials();
   console.log("=== STEP 1: Authenticating ===");
   try {
-    const cred = await signInWithEmailAndPassword(auth, '***REDACTED_EMAIL***', '***REDACTED_PASSWORD***');
+    const cred = await signInWithEmailAndPassword(auth, email, password);
     console.log("Authenticated as:", cred.user.email);
   } catch (e: any) {
     console.warn("Auth warning (proceeding):", e.message);

@@ -6,18 +6,37 @@ import {
 } from 'lucide-react';
 import { useCollection } from '../lib/firebase-hooks';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 import { trackEvent } from '../lib/analytics';
 import { normalizeString } from '../lib/matching';
+import { where } from 'firebase/firestore';
 
 export default function ConsumerPortal() {
   const { showToast } = useToast();
+  const { user } = useAuth();
   
-  // Real datasets from B2B system
-  const { data: allRetailers, loading: loadingRetailers } = useCollection<any>('retailers');
-  const { data: allFlyers, loading: loadingFlyers } = useCollection<any>('flyers');
-  const { data: allProducts, loading: loadingProducts } = useCollection<any>('products');
-  const { data: coupons } = useCollection<any>('coupons');
-  const { data: notifications } = useCollection<any>('notifications');
+  // Real datasets from B2B system (published-only queries matching hardened Firestore rules)
+  const { data: allRetailers, loading: loadingRetailers } = useCollection<any>('retailers', {
+    constraints: [where('status', '==', 'published')],
+    filterKey: 'published'
+  });
+  const { data: allFlyers, loading: loadingFlyers } = useCollection<any>('flyers', {
+    constraints: [where('status', '==', 'published')],
+    filterKey: 'published'
+  });
+  const { data: allProducts, loading: loadingProducts } = useCollection<any>('products', {
+    constraints: [where('status', '==', 'published')],
+    filterKey: 'published'
+  });
+  const { data: coupons } = useCollection<any>('coupons', {
+    constraints: [where('status', '==', 'published')],
+    filterKey: 'published'
+  });
+  const { data: notifications } = useCollection<any>('notifications', {
+    constraints: [where('targetType', '==', 'broadcast'), where('status', 'in', ['accepted_by_provider', 'sent'])],
+    enabled: Boolean(user.uid),
+    filterKey: `broadcast:${user.uid || ''}`
+  });
 
   // Consumer Filter States
   const [selectedEmirate, setSelectedEmirate] = useState('Dubai');

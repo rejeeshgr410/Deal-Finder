@@ -1,0 +1,24 @@
+{
+  "name": "dealfinder-functions",
+  "private": true,
+  "scripts": {
+    "lint": "tsc --noEmit",
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": "22"
+  },
+  "main": "lib/index.js",
+  "dependencies": {
+    "@google/genai": "^2.4.0",
+    "firebase-admin": "^14.5.1",
+    "firebase-functions": "^7.4.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "typescript": "~5.8.2",
+    "vitest": "^3.2.4"
+  }
+}

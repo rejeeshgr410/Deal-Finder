@@ -1,52 +1,80 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
     function isSignedIn() {
       return request.auth != null;
     }
-    
+
+    function hasClaimRole() {
+      return isSignedIn() && request.auth.token.get('role', '') != '';
+    }
+
+    function userDocExists() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
     function getUserDoc() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid));
     }
-    
-    function getUserRole() {
-      return (isSignedIn() && request.auth.token.email == '***REDACTED_EMAIL***') ? 'super_admin' : (exists(/databases/$(database)/documents/users/$(request.auth.uid)) ? getUserDoc().data.role : 'consumer');
-    }
-    
-    function getUserRetailerId() {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) ? getUserDoc().data.retailerId : null;
-    }
-    
-    function isSuperAdmin() {
-      return isSignedIn() && (getUserRole() == 'super_admin');
+
+    function isSuspendedUser() {
+      return isSignedIn()
+        && (request.auth.token.get('isSuspended', false) == true
+            || (!hasClaimRole() && userDocExists() && getUserDoc().data.get('isSuspended', false) == true));
     }
 
-    // Admins have access to all admin operations
+    // Role resolution: prefer server-issued Auth custom claims, fall back to
+    // server-controlled /users/{uid} document. Never trust hardcoded email strings.
+    function getUserRole() {
+      return !isSignedIn()
+        ? 'anonymous'
+        : (hasClaimRole()
+            ? request.auth.token.get('role', 'consumer')
+            : (userDocExists() ? getUserDoc().data.get('role', 'consumer') : 'consumer'));
+    }
+
+    function getUserRetailerId() {
+      return !isSignedIn()
+        ? null
+        : (request.auth.token.get('retailerId', '') != ''
+            ? request.auth.token.get('retailerId', null)
+            : (userDocExists() ? getUserDoc().data.get('retailerId', null) : null));
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() && !isSuspendedUser() && getUserRole() == 'super_admin';
+    }
+
     function isAdmin() {
       let role = getUserRole();
-      return isSignedIn() && (role == 'admin' || role == 'super_admin');
+      return isSignedIn() && !isSuspendedUser() && (role == 'admin' || role == 'super_admin');
     }
 
-    // Moderators have user monitoring/retailer approving capabilities
     function isModerator() {
       let role = getUserRole();
-      return isSignedIn() && (role == 'moderator' || role == 'admin' || role == 'super_admin');
+      return isSignedIn() && !isSuspendedUser() && (role == 'moderator' || role == 'admin' || role == 'super_admin');
     }
 
     function isDataEntry() {
-      let role = getUserRole();
-      return isSignedIn() && (role == 'data_entry');
-    }
-
-    function isRetailerOwner(retailerId) {
-      let role = getUserRole();
-      return isSignedIn() && role == 'retailer_owner' && getUserRetailerId() == retailerId;
+      return isSignedIn() && !isSuspendedUser() && getUserRole() == 'data_entry';
     }
 
     function isRetailerStaff(retailerId) {
       let role = getUserRole();
-      return isSignedIn() && (role == 'retailer_owner' || role == 'retailer_staff') && getUserRetailerId() == retailerId;
+      return isSignedIn()
+        && !isSuspendedUser()
+        && retailerId is string
+        && retailerId.size() > 0
+        && (role == 'retailer_owner' || role == 'retailer_staff')
+        && getUserRetailerId() == retailerId;
+    }
+
+    function isAnyStaffOrModerator() {
+      let role = getUserRole();
+      return isSignedIn()
+        && !isSuspendedUser()
+        && role in ['super_admin', 'admin', 'moderator', 'data_entry', 'retailer_owner', 'retailer_staff'];
     }
 
     function isGlobalCouponData(data) {
@@ -55,86 +83,159 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      // Users can read their own profile. Admins and moderators can read all users. Retailer Owners can read their staff.
-      allow read: if request.auth.uid == userId || isModerator() || (
-        isSignedIn() && getUserRole() == 'retailer_owner' && exists(/databases/$(database)/documents/users/$(userId)) && get(/databases/$(database)/documents/users/$(userId)).data.retailerId == getUserRetailerId()
+      // Users read own profile; moderators/admins read all; retailer_owner reads own retailer staff.
+      allow read: if isSignedIn() && (
+        request.auth.uid == userId ||
+        isModerator() ||
+        (getUserRole() == 'retailer_owner'
+          && exists(/databases/$(database)/documents/users/$(userId))
+          && get(/databases/$(database)/documents/users/$(userId)).data.get('retailerId', null) == getUserRetailerId())
       );
-      // Auto-provisioning allows self-creation on first login
-      allow create: if request.auth.uid == userId;
-      // Only Admins can modify roles etc; users can modify own basic data but not their role or retailerId
-      allow update: if isAdmin() || (request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'retailerId']));
-      allow delete: if isAdmin();
 
-      // Allow users to read and write their own private subcollections (shoppingLists, searchHistory, savedDeals, followedRetailers, alerts)
-      match /{subcollection=**} {
-        allow read, write: if isSignedIn() && request.auth.uid == userId;
+      // Self-creation is locked strictly to safe consumer/pending defaults with no retailerId or suspension bypass.
+      allow create: if isSignedIn()
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly([
+          'id', 'name', 'displayName', 'email', 'passwordHash', 'isGuest', 'role',
+          'isSuspended', 'notifyNewFlyers', 'notifyPriceDrops', 'notifyDealExpiry',
+          'notifyPromotions', 'notifyCouponExpiry', 'fcmToken', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.get('role', 'consumer') in ['consumer', 'user', 'pending']
+        && (!('retailerId' in request.resource.data) || request.resource.data.retailerId == null)
+        && request.resource.data.get('isSuspended', false) == false;
+
+      // Only super_admin may grant/modify super_admin; admins manage non-super_admin users;
+      // users can update own safe preferences without altering role, retailerId, or suspension.
+      allow update: if resource != null && (
+        isSuperAdmin()
+        || (isAdmin()
+            && (!exists(/databases/$(database)/documents/users/$(userId))
+                || get(/databases/$(database)/documents/users/$(userId)).data.get('role', 'consumer') != 'super_admin')
+            && request.resource.data.get('role', 'consumer') != 'super_admin')
+        || (isSignedIn()
+            && request.auth.uid == userId
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+              'role', 'retailerId', 'isSuspended', 'emailVerified', 'customClaimsSyncedAt'
+            ]))
+      );
+
+      allow delete: if isSuperAdmin();
+
+      // Private user subcollections strictly scoped to owner and allowlisted collection names.
+      match /{subcollection}/{docPath=**} {
+        allow read, write: if isSignedIn()
+          && request.auth.uid == userId
+          && subcollection in [
+            'shoppingLists', 'shopping_list', 'searchHistory',
+            'savedDeals', 'savedFlyers', 'savedCoupons',
+            'followedRetailers', 'alerts', 'notificationPreferences'
+          ];
       }
     }
 
     match /retailers/{retailerId} {
-      // Retailers, branches, flyers are public information (readable by consumers and all managers for mapping/dashboards)
-      allow read: if true;
-      
-      // Admins manage retailers
+      allow read: if resource.data.status in ['published', 'Active']
+        || isModerator()
+        || isDataEntry()
+        || isRetailerStaff(retailerId);
       allow create, delete: if isAdmin();
-      
-      // Retailers can update their own data, Admins/Moderators can update any
-      allow update: if isModerator() || isRetailerStaff(retailerId);
+      allow update: if isModerator()
+        || (isRetailerStaff(retailerId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status']));
     }
-    
+
     match /branches/{branchId} {
       allow read: if true;
-      allow create: if isModerator() || isRetailerStaff(request.resource.data.retailerId);
-      allow update: if isModerator() || (isRetailerStaff(resource.data.retailerId) && request.resource.data.retailerId == resource.data.retailerId);
+      allow create: if isModerator()
+        || (request.resource.data.get('retailerId', '') is string && isRetailerStaff(request.resource.data.retailerId));
+      allow update: if isModerator()
+        || (isRetailerStaff(resource.data.retailerId) && request.resource.data.retailerId == resource.data.retailerId);
       allow delete: if isAdmin() || isRetailerStaff(resource.data.retailerId);
     }
 
     match /flyers/{flyerId} {
-      allow read: if true;
-      
-      // Retailer Staff/Moderators/DataEntry can create flyers
-      allow create: if isModerator() || isDataEntry() || isRetailerStaff(request.resource.data.retailerId);
-      
-      // Prevent changing the retailerId on update unless admin/moderator
-      allow update: if 
-        isModerator() || isDataEntry() ||
-        (isRetailerStaff(resource.data.retailerId) && request.resource.data.retailerId == resource.data.retailerId);
-        
+      allow read: if resource.data.status == 'published'
+        || isModerator()
+        || isDataEntry()
+        || isRetailerStaff(resource.data.retailerId);
+
+      // Retailer staff cannot self-publish globally without moderator/admin approval.
+      allow create: if isModerator()
+        || isDataEntry()
+        || (isRetailerStaff(request.resource.data.retailerId)
+            && request.resource.data.status in ['draft', 'ocr_review', 'pending_admin_review', 'extracting', 'review_required']);
+
+      allow update: if isModerator()
+        || isDataEntry()
+        || (isRetailerStaff(resource.data.retailerId)
+            && request.resource.data.retailerId == resource.data.retailerId
+            && request.resource.data.status in ['draft', 'ocr_review', 'pending_admin_review', 'extracting', 'review_required', 'withdrawn']);
+
       allow delete: if isAdmin() || isRetailerStaff(resource.data.retailerId);
     }
 
     match /products/{productId} {
-      // Consumers and managers can read all products
-      allow read: if true;
-      allow create: if isModerator() || isDataEntry() || isRetailerStaff(request.resource.data.retailerId);
-      allow update: if isModerator() || isDataEntry() || (isRetailerStaff(resource.data.retailerId) && request.resource.data.retailerId == resource.data.retailerId);
+      allow read: if resource.data.status == 'published'
+        || isModerator()
+        || isDataEntry()
+        || isRetailerStaff(resource.data.retailerId);
+
+      // Retailer staff cannot self-publish globally without moderator/admin approval.
+      allow create: if isModerator()
+        || isDataEntry()
+        || (isRetailerStaff(request.resource.data.retailerId)
+            && request.resource.data.status in ['draft', 'ocr_review', 'pending_admin_review', 'extracting', 'review_required']);
+
+      allow update: if isModerator()
+        || isDataEntry()
+        || (isRetailerStaff(resource.data.retailerId)
+            && request.resource.data.retailerId == resource.data.retailerId
+            && request.resource.data.status in ['draft', 'ocr_review', 'pending_admin_review', 'extracting', 'review_required', 'withdrawn']);
+
       allow delete: if isAdmin() || isRetailerStaff(resource.data.retailerId);
     }
 
     match /promotions/{promotionId} {
-      allow read: if true;
-      allow create: if isModerator() || isDataEntry() || isRetailerStaff(request.resource.data.retailerId);
-      allow update: if isModerator() || (isRetailerStaff(resource.data.retailerId) && request.resource.data.retailerId == resource.data.retailerId);
+      allow read: if resource.data.status == 'published'
+        || isModerator()
+        || isDataEntry()
+        || isRetailerStaff(resource.data.retailerId);
+
+      allow create: if isModerator()
+        || isDataEntry()
+        || (isRetailerStaff(request.resource.data.retailerId)
+            && request.resource.data.status in ['draft', 'pending_admin_review']);
+
+      allow update: if isModerator()
+        || (isRetailerStaff(resource.data.retailerId)
+            && request.resource.data.retailerId == resource.data.retailerId
+            && request.resource.data.status in ['draft', 'pending_admin_review', 'withdrawn']);
+
       allow delete: if isAdmin() || isRetailerStaff(resource.data.retailerId);
     }
 
     match /coupons/{couponId} {
-      allow read: if true;
-      // Global/platform UAE coupons (isGlobal == true or empty/missing retailerId) can only be managed by admins.
-      // Shop-specific coupons can be managed by admins or staff of that retailer (without changing retailerId).
+      allow read: if resource.data.status == 'published'
+        || isModerator()
+        || isDataEntry()
+        || (!isGlobalCouponData(resource.data) && isRetailerStaff(resource.data.retailerId));
+
       allow create: if isAdmin() || (
-        !isGlobalCouponData(request.resource.data) &&
-        isRetailerStaff(request.resource.data.retailerId)
+        !isGlobalCouponData(request.resource.data)
+        && isRetailerStaff(request.resource.data.retailerId)
+        && request.resource.data.status in ['draft', 'pending_admin_review']
       );
+
       allow update: if isAdmin() || (
-        !isGlobalCouponData(resource.data) &&
-        !isGlobalCouponData(request.resource.data) &&
-        isRetailerStaff(resource.data.retailerId) &&
-        request.resource.data.retailerId == resource.data.retailerId
+        !isGlobalCouponData(resource.data)
+        && !isGlobalCouponData(request.resource.data)
+        && isRetailerStaff(resource.data.retailerId)
+        && request.resource.data.retailerId == resource.data.retailerId
+        && request.resource.data.status in ['draft', 'pending_admin_review', 'withdrawn']
       );
+
       allow delete: if isAdmin() || (
-        !isGlobalCouponData(resource.data) &&
-        isRetailerStaff(resource.data.retailerId)
+        !isGlobalCouponData(resource.data)
+        && isRetailerStaff(resource.data.retailerId)
       );
     }
 
@@ -144,32 +245,62 @@ service cloud.firestore {
     }
 
     match /notifications/{notificationId} {
-      allow read: if true;
-      allow create: if true;
-      allow update, delete: if true;
+      allow read: if isModerator()
+        || (isSignedIn() && resource.data.targetType == 'broadcast' && resource.data.status in ['accepted_by_provider', 'sent']);
+      allow create, update, delete: if false; // Trusted backend Admin SDK only
     }
 
     match /fcmTokens/{tokenId} {
-      allow read: if true;
-      allow create, update: if true;
-      allow delete: if isAdmin();
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn()
+        && !isSuspendedUser()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.id == tokenId
+        && request.resource.data.status in ['active', 'inactive']
+        && request.resource.data.keys().hasOnly([
+          'id', 'userId', 'status', 'deviceType', 'updatedAt', 'emirate', 'followedRetailers'
+        ]);
+      allow update: if isSignedIn()
+        && !isSuspendedUser()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.id == tokenId
+        && request.resource.data.status in ['active', 'inactive']
+        && request.resource.data.keys().hasOnly([
+          'id', 'userId', 'status', 'deviceType', 'updatedAt', 'emirate', 'followedRetailers'
+        ]);
+      allow delete: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
     }
 
     match /notificationDeliveries/{deliveryId} {
-      allow read, create, update: if true;
-      allow delete: if isAdmin();
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create, update, delete: if false; // Trusted backend Admin SDK only
     }
 
     match /analytics/{docId} {
-      allow read: if true;
-      allow create: if true; // Track events
-      allow update, delete: if isAdmin();
+      allow read: if isAdmin()
+        || isModerator()
+        || (isSignedIn() && ('tenantId' in resource.data) && isRetailerStaff(resource.data.tenantId));
+      allow create, update, delete: if false; // Trusted backend trackAnalyticsEvent only
     }
 
     match /auditLogs/{logId} {
       allow read: if isAdmin();
-      allow create: if isSignedIn();
+      allow create: if isAnyStaffOrModerator()
+        && request.resource.data.get('actorUid', '') == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'collection', 'action', 'documentId', 'details', 'user', 'actorUid', 'timestamp'
+        ]);
       allow update, delete: if false;
+    }
+
+    match /extractionJobs/{jobId} {
+      allow read: if isModerator() || isDataEntry() || isRetailerStaff(resource.data.retailerId);
+      allow create, update, delete: if false; // Trusted backend only
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

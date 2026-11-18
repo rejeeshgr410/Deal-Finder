@@ -3,12 +3,15 @@ import path from 'path';
 import { auth, db } from '../firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, writeBatch } from 'firebase/firestore';
+import { assertStagingTarget, getStagingCredentials } from './_stagingEnv';
 
 const D4D_DIR = 'C:/Reji/Android Apps/Deal Finder/D4D';
 
 async function seedData() {
-  console.log("=== STEP 1: Authenticating as Merchant Admin ===");
-  const cred = await signInWithEmailAndPassword(auth, '***REDACTED_EMAIL***', '***REDACTED_PASSWORD***');
+  assertStagingTarget('seed_d4d_data');
+  const { email, password } = getStagingCredentials();
+  console.log("=== STEP 1: Authenticating as Staging Admin ===");
+  const cred = await signInWithEmailAndPassword(auth, email, password);
   console.log("Authenticated as:", cred.user.email, cred.user.uid);
 
   // Read shops.json
