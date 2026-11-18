@@ -1,16 +1,10 @@
 package com.example.ui.lists
 
-import com.example.data.matchesSearchName
-import com.example.data.isIdenticalTo
-
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -18,46 +12,53 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.ProductEntity
-import com.example.data.ShoppingListItem
-import com.example.data.RetailerEntity
 import com.example.data.BranchEntity
-import kotlin.math.roundToInt
+import com.example.data.ProductEntity
+import com.example.data.RetailerEntity
+import com.example.data.ShoppingListItem
+import com.example.domain.basket.*
+import com.example.ui.theme.*
 
-@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun BasketOptimizationEngine(
     items: List<ShoppingListItem>,
     products: List<ProductEntity>,
     stores: List<RetailerEntity>,
-    getNearestBranchAndDistance: (String) -> Pair<BranchEntity?, Double?>
+    getNearestBranchAndDistance: (String) -> Pair<BranchEntity?, Double?>,
+    selectedEmirate: String = "Dubai",
+    includeDemoOffers: Boolean = false,
+    onOpenProduct: (String) -> Unit = {}
 ) {
     if (items.isEmpty()) return
     val selectedItems = items.filter { it.isSelected }
+
     if (selectedItems.isEmpty()) {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-            shape = RoundedCornerShape(24.dp)
+            shape = RoundedCornerShape(20.dp)
         ) {
             Box(
-                modifier = Modifier.fillMaxWidth().padding(24.dp),
+                modifier = Modifier.fillMaxWidth().padding(20.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.ShoppingBasket, contentDescription = null, tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f), modifier = Modifier.size(40.dp))
+                    Icon(
+                        Icons.Default.ShoppingBasket,
+                        contentDescription = "Select basket items",
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                        modifier = Modifier.size(36.dp)
+                    )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "Please select items in your list to optimize and find the best UAE deals.",
+                        "Select items in your list to compare 1-store vs 2-store UAE prices.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -68,489 +69,292 @@ fun BasketOptimizationEngine(
         return
     }
 
-    val originalCost = selectedItems.sumOf { it.targetPrice * it.qty * 1.0 }
+    var objective by remember { mutableStateOf(Objective.LOWEST_PRICE) }
+    var preferredStoreId by remember(stores) { mutableStateOf(stores.firstOrNull()?.id) }
+    var hasLoyaltyCard by remember { mutableStateOf(false) }
+    var showWhyPanel by remember { mutableStateOf(false) }
 
-    // Grouping by item.productId master match, fallback to matchesSearchName
-    val matchingProductsByName = selectedItems.associate { item ->
-        val refProduct = products.find { it.id == item.productId }
-        val matches = if (refProduct != null) {
-            products.filter { it.isIdenticalTo(refProduct) }
-        } else {
-            products.filter {
-                (it.masterProductId.isNotBlank() && it.masterProductId == item.productId) ||
-                it.matchesSearchName(item.name)
-            }
-        }
-        item.name to matches
-    }
-
-    // Single store cost calculation
-    var singleStoreMinCost = Double.MAX_VALUE
-    var bestSingleStoreId = ""
-    var bestSingleStoreMissingCount = Int.MAX_VALUE
-    val bestSingleStoreMissingItems = mutableListOf<String>()
-    
-    // Multi store optimal cost calculation
-    var multiStoreOptimalCost = 0.0
-    val multiStorePlan = mutableMapOf<String, MutableList<ShoppingListItem>>() // retailerId to items
-    val multiStoreMissingItems = mutableListOf<String>()
-
-    // Resolve optimal multi-store
-    selectedItems.forEach { item ->
-        val matches = matchingProductsByName[item.name] ?: emptyList()
-        val optimalProduct = matches.minByOrNull { it.currentPrice }
-        
-        if (optimalProduct != null) {
-            multiStoreOptimalCost += optimalProduct.currentPrice * item.qty
-            val list = multiStorePlan.getOrPut(optimalProduct.retailerId) { mutableListOf() }
-            list.add(item)
-        } else {
-            multiStoreOptimalCost += item.targetPrice * item.qty
-            multiStoreMissingItems.add(item.name)
+    val requestedItems = remember(selectedItems, products) {
+        val byId = products.associateBy { it.id }
+        selectedItems.map { item ->
+            val ref = byId[item.productId]
+            val unit = ref?.let { ProductIdentityMatcher.extractCanonicalUnit(it) }
+            RequestedItem(
+                lineId = item.id, // Unique line ID; never keyed by name
+                name = item.name,
+                identity = ProductIdentity(
+                    masterProductId = ref?.masterProductId ?: "",
+                    barcodeGtin = ref?.barcode ?: "",
+                    brand = ref?.brand ?: "",
+                    name = ref?.name ?: item.name,
+                    baseQuantity = unit?.baseQuantity,
+                    baseUnit = unit?.baseUnit,
+                    packCount = unit?.packCount ?: 1
+                ),
+                requestedQuantity = item.qty.coerceAtLeast(1),
+                referenceProductId = item.productId
+            )
         }
     }
 
-    stores.forEach { store ->
-        var storeCost = 0.0
-        var missingCount = 0
-        val currentMissingTemp = mutableListOf<String>()
-        selectedItems.forEach { item ->
-            val matches = matchingProductsByName[item.name] ?: emptyList()
-            val productAtStore = matches.find { it.retailerId == store.id }
-            if (productAtStore != null) {
-                storeCost += productAtStore.currentPrice * item.qty
-            } else {
-                storeCost += item.targetPrice * item.qty
-                missingCount++
-                currentMissingTemp.add(item.name)
-            }
-        }
-        
-        // Prioritize: 1) Minimum unavailable count, 2) Minimum cost
-        if (missingCount < bestSingleStoreMissingCount || (missingCount == bestSingleStoreMissingCount && storeCost < singleStoreMinCost)) {
-            singleStoreMinCost = storeCost
-            bestSingleStoreId = store.id
-            bestSingleStoreMissingCount = missingCount
-            bestSingleStoreMissingItems.clear()
-            bestSingleStoreMissingItems.addAll(currentMissingTemp)
-        }
-    }
-
-    val singleStoreEntity = stores.find { it.id == bestSingleStoreId }
-    val bestSingleStoreBranchAndDist = getNearestBranchAndDistance(bestSingleStoreId)
-    val singleStoreBranch = bestSingleStoreBranchAndDist.first
-    val singleStoreDistance = bestSingleStoreBranchAndDist.second ?: 2.5
-
-    val validMultiStores = multiStorePlan.keys.toList()
-    val multiStoreBranches = validMultiStores.map { getNearestBranchAndDistance(it) }
-    val multiStoreTotalDistance = if (multiStoreBranches.isNotEmpty() && multiStoreBranches.all { it.second != null }) {
-        multiStoreBranches.sumOf { it.second!! }
-    } else {
-        singleStoreDistance + (validMultiStores.size * 1.5)
-    }
-
-    val singleStoreSavings = originalCost - singleStoreMinCost
-    val multiStoreSavings = originalCost - multiStoreOptimalCost
-    
-    val extraMultiSavings = multiStoreSavings - singleStoreSavings
-    
-    // Under material 3 guidelines, recommendation mode compares driving/effort to absolute extra savings
-    // If saving more than AED 15 by splitting, recommend Multi-Store, otherwise advise Single-Store convenience.
-    val isMultiBetterRecommendation = extraMultiSavings >= 15.0 && validMultiStores.size > 1
-
-    var selectedMode by remember { mutableStateOf("recommended") }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        shape = RoundedCornerShape(20.dp)
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Insights,
-                        contentDescription = "Insights",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(8.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
-                    Text(
-                        text = "Basket Price Optimizer",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "Multi-hypermarket cost calculation",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Tab Selector
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
-                    .padding(3.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                OptimizationTab("Recommended", selectedMode == "recommended") { selectedMode = "recommended" }
-                OptimizationTab("Single Store", selectedMode == "single") { selectedMode = "single" }
-                OptimizationTab("Multi Store", selectedMode == "multi") { selectedMode = "multi" }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            AnimatedContent(targetState = selectedMode, label = "modeAnimation") { mode ->
-                when (mode) {
-                    "single" -> {
-                        val cheapestStoreName = singleStoreEntity?.name ?: "Unknown Retailer"
-                        val branchString = if (singleStoreBranch != null) {
-                            "${singleStoreBranch.name} (${String.format("%.1f", singleStoreDistance)} km away)"
-                        } else {
-                            "$cheapestStoreName (~${String.format("%.1f", singleStoreDistance)} km)"
-                        }
-                        
-                        OptimizationResultView(
-                            title = "Cheapest Single Store",
-                            subtitle = "Shop everything at $cheapestStoreName for ultimate simplicity.",
-                            totalCost = singleStoreMinCost,
-                            originalCost = originalCost,
-                            savings = singleStoreSavings,
-                            savingsPct = if (originalCost > 0) ((singleStoreSavings / originalCost) * 100).roundToInt() else 0,
-                            distanceStr = "Drive to nearest branch: $branchString",
-                            planDetails = "All grocery list items routed to $cheapestStoreName. No multiple trips or extra parking charges.",
-                            shoppingRoute = listOf(singleStoreBranch?.name ?: cheapestStoreName),
-                            missingItems = bestSingleStoreMissingItems
-                        )
-                    }
-                    "multi" -> {
-                        val routeNames = multiStoreBranches.mapIndexed { index, pair -> 
-                            pair.first?.name ?: (stores.find { it.id == validMultiStores.getOrNull(index) }?.name ?: "Store")
-                        }
-                        val storeSummary = multiStorePlan.entries.joinToString(", ") { (storeId, items) ->
-                            val sName = stores.find { it.id == storeId }?.name ?: "Store"
-                            "$sName (${items.size} items)"
-                        }
-
-                        OptimizationResultView(
-                            title = "Optimal Multi-Store Basket",
-                            subtitle = "Split items across ${validMultiStores.size} retailers for lowest price.",
-                            totalCost = multiStoreOptimalCost,
-                            originalCost = originalCost,
-                            savings = multiStoreSavings,
-                            savingsPct = if (originalCost > 0) ((multiStoreSavings / originalCost) * 100).roundToInt() else 0,
-                            distanceStr = "Split route total: ~${String.format("%.1f", multiStoreTotalDistance)} km away",
-                            planDetails = "Optimal split mapping: $storeSummary. Gives you the rock-bottom prices on each individual brand.",
-                            shoppingRoute = routeNames,
-                            missingItems = multiStoreMissingItems
-                        )
-                    }
-                    "recommended" -> {
-                        if (isMultiBetterRecommendation) {
-                            val routeNames = multiStoreBranches.mapIndexed { index, pair -> 
-                                pair.first?.name ?: (stores.find { it.id == validMultiStores.getOrNull(index) }?.name ?: "Store")
-                            }
-                            OptimizationResultView(
-                                title = "Smart Recommendation",
-                                subtitle = "Go with Multi-Store Split",
-                                totalCost = multiStoreOptimalCost,
-                                originalCost = originalCost,
-                                savings = multiStoreSavings,
-                                savingsPct = if (originalCost > 0) ((multiStoreSavings / originalCost) * 100).roundToInt() else 0,
-                                distanceStr = "Splitting across ${validMultiStores.size} stores covers ${String.format("%.1f", multiStoreTotalDistance)} km",
-                                planDetails = "Worth the drive! You save an extra AED ${String.format("%.2f", extraMultiSavings)} compared to shopping at a single retailer. Highly recommended for family baskets.",
-                                shoppingRoute = routeNames,
-                                missingItems = multiStoreMissingItems,
-                                isRecommended = true
-                            )
-                        } else {
-                            val cheapestStoreName = singleStoreEntity?.name ?: "Unknown Retailer"
-                            val branchString = if (singleStoreBranch != null) {
-                                "${singleStoreBranch.name} (~${String.format("%.1f", singleStoreDistance)} km)"
-                            } else {
-                                "$cheapestStoreName (~${String.format("%.1f", singleStoreDistance)} km)"
-                            }
-                            OptimizationResultView(
-                                title = "Smart Recommendation",
-                                subtitle = "Stick to $cheapestStoreName (Single Store)",
-                                totalCost = singleStoreMinCost,
-                                originalCost = originalCost,
-                                savings = singleStoreSavings,
-                                savingsPct = if (originalCost > 0) ((singleStoreSavings / originalCost) * 100).roundToInt() else 0,
-                                distanceStr = "Nearest branch: $branchString",
-                                planDetails = if (extraMultiSavings > 0) {
-                                    "Highly Recommended. Splitting only saves an extra AED ${String.format("%.2f", extraMultiSavings)} which doesn't compensate for the extra petrol and driving time. Stay convenient!"
-                                } else {
-                                    "Save maximum time and money! Shopping entirely at $cheapestStoreName guarantees full convenience and the highest discount rate."
-                                },
-                                shoppingRoute = listOf(singleStoreBranch?.name ?: cheapestStoreName),
-                                missingItems = bestSingleStoreMissingItems,
-                                isRecommended = true
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun RowScope.OptimizationTab(title: String, selected: Boolean, onClick: () -> Unit) {
-    val bgColor = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent
-    val textColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-    Box(
-        modifier = Modifier
-            .weight(1f)
-            .clip(RoundedCornerShape(8.dp))
-            .background(bgColor)
-            .clickable { onClick() }
-            .padding(vertical = 10.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = title,
-            color = textColor,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold
+    val result = remember(requestedItems, products, stores, selectedEmirate, objective, preferredStoreId, hasLoyaltyCard, includeDemoOffers) {
+        BasketOptimizer.optimize(
+            request = BasketRequest(
+                items = requestedItems,
+                selectedEmirate = selectedEmirate,
+                objective = objective,
+                maxStores = 2,
+                preferredRetailerId = if (objective == Objective.PREFERRED_RETAILER) preferredStoreId else null,
+                hasUserLoyaltyCard = hasLoyaltyCard,
+                includeDemoOffers = includeDemoOffers
+            ),
+            products = products,
+            stores = stores
         )
     }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Preferences Row
+        Text("Compare Basket Options", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Slate900)
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf(
+                Objective.LOWEST_PRICE to "Lowest Listed Cost",
+                Objective.FEWEST_STORES to "Fewest Stops",
+                Objective.PREFERRED_RETAILER to "Prefer Retailer"
+            ).forEach { (obj, label) ->
+                FilterChip(
+                    selected = objective == obj,
+                    onClick = { objective = obj },
+                    label = { Text(label, style = MaterialTheme.typography.labelMedium) }
+                )
+            }
+            FilterChip(
+                selected = hasLoyaltyCard,
+                onClick = { hasLoyaltyCard = !hasLoyaltyCard },
+                label = { Text("Loyalty Cards", style = MaterialTheme.typography.labelMedium) }
+            )
+        }
+
+        if (objective == Objective.PREFERRED_RETAILER && stores.isNotEmpty()) {
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                stores.take(8).forEach { s ->
+                    FilterChip(
+                        selected = preferredStoreId == s.id,
+                        onClick = { preferredStoreId = s.id },
+                        label = { Text(s.name, style = MaterialTheme.typography.labelSmall) }
+                    )
+                }
+            }
+        }
+
+        // Coverage & Recommendation Disclosure
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = Color(0xFFF8FAFC),
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+        ) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    result.recommendationSummary,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Slate900
+                )
+                Text(
+                    result.coverageDisclosure,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Slate500
+                )
+            }
+        }
+
+        // One-Store Option Card
+        result.bestOneStore?.let { oneOpt ->
+            BasketOptionCard(
+                title = "1-Store Option",
+                option = oneOpt,
+                getNearestBranchAndDistance = getNearestBranchAndDistance,
+                onOpenProduct = onOpenProduct
+            )
+        }
+
+        // Two-Store Option Card
+        result.bestTwoStore?.let { twoOpt ->
+            BasketOptionCard(
+                title = "2-Store Split Option",
+                option = twoOpt,
+                getNearestBranchAndDistance = getNearestBranchAndDistance,
+                onOpenProduct = onOpenProduct
+            )
+        }
+
+        // Preferred Store Card (if selected)
+        if (objective == Objective.PREFERRED_RETAILER) {
+            result.preferredStoreOption?.let { prefOpt ->
+                BasketOptionCard(
+                    title = "Preferred Retailer",
+                    option = prefOpt,
+                    getNearestBranchAndDistance = getNearestBranchAndDistance,
+                    onOpenProduct = onOpenProduct
+                )
+            }
+        }
+
+        // "Why this option?" expandable breakdown
+        val drivers = remember(result) {
+            BasketExplanations.explainDrivers(result.bestOneStore, result.bestTwoStore)
+        }
+        if (drivers.isNotEmpty()) {
+            TextButton(onClick = { showWhyPanel = !showWhyPanel }) {
+                Text(if (showWhyPanel) "Hide price difference details" else "Why this option? (${drivers.size} item difference(s))")
+            }
+            if (showWhyPanel) {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        drivers.forEach { d ->
+                            Text("• $d", style = MaterialTheme.typography.bodySmall, color = Slate700)
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
-fun OptimizationResultView(
+private fun BasketOptionCard(
     title: String,
-    subtitle: String,
-    totalCost: Double,
-    originalCost: Double,
-    savings: Double,
-    savingsPct: Int,
-    distanceStr: String,
-    planDetails: String,
-    shoppingRoute: List<String>,
-    missingItems: List<String>,
-    isRecommended: Boolean = false
+    option: BasketOption,
+    getNearestBranchAndDistance: (String) -> Pair<BranchEntity?, Double?>,
+    onOpenProduct: (String) -> Unit
 ) {
-    Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            if (isRecommended) {
-                Spacer(modifier = Modifier.width(8.dp))
-                Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
-                ) {
-                    Text(
-                        "BEST VALUE",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
-                }
-            }
-        }
-        Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Bottom
-        ) {
-            Column {
-                Text("Optimized Basket Total", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(
-                    text = "AED ${String.format("%.2f", totalCost)}",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = "Original: AED ${String.format("%.2f", originalCost)}",
-                    style = MaterialTheme.typography.labelSmall,
-                    textDecoration = TextDecoration.LineThrough,
-                    color = MaterialTheme.colorScheme.outline
-                )
-            }
-            
-            if (savings > 0) {
-                Surface(color = Color(0xFFE8F5E9), shape = RoundedCornerShape(12.dp)) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "Save ${savingsPct}%",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = Color(0xFF235E25),
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "AED ${String.format("%.2f", savings)} Off",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFF235E25),
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        // Real branch and distance information
-        Surface(
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, if (option.complete) Color(0xFFBBF7D0) else Color(0xFFFDE68A))
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
-                modifier = Modifier.padding(12.dp),
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.DirectionsCar,
-                    contentDescription = "Distance",
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.labelMedium, color = Slate500, fontWeight = FontWeight.Bold)
                     Text(
-                        "Real Branch & Distance Estimates",
-                        style = MaterialTheme.typography.labelSmall,
+                        option.storeNames.joinToString(" + "),
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = Slate900
+                    )
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = option.totalFils?.let { Money.formatAed(it) }
+                            ?: "Subtotal ${Money.formatAed(option.verifiedItemsSubtotalFils)}",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = if (option.complete) Color(0xFF15803D) else Color(0xFFB45309)
                     )
                     Text(
-                        distanceStr,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        "${option.itemCoverage} of ${option.itemCount} items priced",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Slate500
                     )
                 }
             }
-        }
-        
-        Spacer(modifier = Modifier.height(12.dp))
-        
-        if (shoppingRoute.isNotEmpty()) {
-            Text("Suggested Mall / Branch Route", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(6.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp)
-            ) {
-                shoppingRoute.forEachIndexed { index, storeName ->
-                    Surface(
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        shape = CircleShape,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f))
-                    ) {
-                        Text(
-                            text = storeName,
-                            style = MaterialTheme.typography.labelSmall,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    if (index < shoppingRoute.size - 1) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowForward,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 6.dp).size(14.dp)
-                        )
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-        }
 
-        // Convenience recommendation content text
-        Surface(
-            color = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-        ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Recommend,
-                        contentDescription = "Recommendation icon",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Convenience vs Savings Recommendation",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-                Spacer(modifier = Modifier.height(4.dp))
+            // Honest Distance Disclosure (no fabricated 1.2 km / 2.5 km fallback)
+            val distSummary = option.storeIds.mapIndexed { idx, sid ->
+                val (_, dist) = getNearestBranchAndDistance(sid)
+                val sName = option.storeNames.getOrElse(idx) { sid }
+                if (dist != null) "$sName: ${"%.1f".format(dist)} km straight-line" else "$sName: Distance unavailable"
+            }.joinToString(" • ")
+            Text(distSummary, style = MaterialTheme.typography.labelSmall, color = Slate500)
+
+            // Savings / Fee disclosure
+            option.unknownFeeDisclosure?.let {
+                Text(it, style = MaterialTheme.typography.labelSmall, color = Slate500)
+            }
+            if (option.comparisonDeltaVsBestSingleStoreFils != null) {
                 Text(
-                    text = planDetails,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    option.savingsBaselineDisclosure,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF15803D)
                 )
             }
-        }
-        
-        // Unavailable items indicator
-        if (missingItems.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(12.dp))
-            Surface(
-                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f),
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f))
-            ) {
+
+            // Priced lines with tap-to-source
+            option.pricedLines.forEach { line ->
                 Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.Top
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onOpenProduct(line.product.id) }
+                        .padding(vertical = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Warning,
-                        contentDescription = "Warning",
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(16.dp).padding(top = 2.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Unpublished/Unavailable Here (${missingItems.size})",
+                            "${line.requestedQuantity}× ${line.product.name}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Slate900
+                        )
+                        Text(
+                            "${line.storeName} • ${line.verificationLabel}${line.unitPriceText?.let { " • $it" } ?: ""}",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            color = Slate400
+                        )
+                    }
+                    Text(
+                        Money.formatAed(line.lineSubtotalFils),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Slate900
+                    )
+                }
+            }
+
+            // Unpriced warnings
+            if (option.unpricedLines.isNotEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFFFEF3C7)
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Text(
+                            "Unpriced / Missing Offers (${option.unpricedLines.size})",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.error
+                            color = Color(0xFF92400E)
                         )
-                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "These items are fallback/unmatched and estimated at target list price: ${missingItems.joinToString(", ")}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onErrorContainer
+                            "Full basket total unavailable. Missing: ${option.unpricedLines.joinToString(", ") { it.itemName }}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFF92400E)
                         )
                     }
                 }
+            }
+
+            option.explanatoryWarnings.firstOrNull()?.let { warn ->
+                Text(warn, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = Slate400)
             }
         }
     }

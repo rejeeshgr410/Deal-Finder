@@ -90,45 +90,7 @@ data class ProductEntity(
 )
 
 fun ProductEntity.isIdenticalTo(other: ProductEntity): Boolean {
-    if (this.id == other.id) return true
-    
-    // 1. Compare by masterProductId first
-    if (this.masterProductId.isNotBlank() && other.masterProductId.isNotBlank()) {
-        if (this.masterProductId == other.masterProductId) return true
-    }
-    
-    // 2. Then barcode
-    if (this.barcode.isNotBlank() && other.barcode.isNotBlank()) {
-        if (this.barcode == other.barcode) return true
-    }
-    
-    // 3. Then brand + unit size
-    val thisBrand = this.brand.trim()
-    val otherBrand = other.brand.trim()
-    if (thisBrand.isNotBlank() && otherBrand.isNotBlank() && 
-        thisBrand.equals(otherBrand, ignoreCase = true) && 
-        this.unitSize == other.unitSize && 
-        this.unitType.equals(other.unitType, ignoreCase = true)) {
-        val n1 = this.name.normalizeProduct()
-        val n2 = other.name.normalizeProduct()
-        if (n1 == n2 || n1.contains(n2) || n2.contains(n1)) return true
-    }
-    
-    // 4. Then normalized product name
-    val n1 = this.name.normalizeProduct()
-    val n2 = other.name.normalizeProduct()
-    if (n1.isNotBlank() && n1 == n2) return true
-    
-    // Typo match tolerance for cases like "Coke 330ml" and "Coca-cola 330ml"
-    val tokens1 = n1.split(" ").filter { it.isNotBlank() && it.length > 2 }.toSet()
-    val tokens2 = n2.split(" ").filter { it.isNotBlank() && it.length > 2 }.toSet()
-    if (tokens1.isNotEmpty() && tokens2.isNotEmpty()) {
-        val intersection = tokens1.intersect(tokens2)
-        if (intersection.size >= Math.max(1, (Math.min(tokens1.size, tokens2.size) * 0.7).toInt())) {
-            return true
-        }
-    }
-    return false
+    return com.example.domain.basket.ProductIdentityMatcher.areExactSameSku(this, other)
 }
 
 fun ProductEntity.matchesSearchName(otherName: String): Boolean {

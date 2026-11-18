@@ -246,7 +246,8 @@ fun DealFinderApp(
                         dealViewModel = dealViewModel,
                         onNavigateToLocation = { navController.navigate(Screen.Location.route) },
                         onNavigateToNotifications = { navController.navigate(Screen.NotificationSettings.route) },
-                        onNavigateToCompare = { navigateToTab(Screen.Search.route) }
+                        onNavigateToCompare = { navigateToTab(Screen.Search.route) },
+                        onNavigateToProduct = { productId -> navController.navigate(Screen.ProductDetail.createRoute(productId)) }
                     )
                 }
             }

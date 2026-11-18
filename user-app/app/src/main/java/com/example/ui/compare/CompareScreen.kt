@@ -337,23 +337,54 @@ fun CompareScreen(
                 }
             }
 
-            val productsToShow = if (filteredProducts.isNotEmpty()) filteredProducts else allProducts.take(10)
-            items(productsToShow) { product ->
-                val identicals = productsToShow.filter { it.isIdenticalTo(product) }
-                val minPrice = identicals.minByOrNull { it.currentPrice }?.currentPrice ?: Double.MAX_VALUE
-                val isCheapest = product.currentPrice <= minPrice
+            if (filteredProducts.isEmpty()) {
+                item {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        shape = RoundedCornerShape(18.dp),
+                        color = Color.White,
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(Icons.Outlined.SearchOff, contentDescription = null, tint = Slate400, modifier = Modifier.size(36.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                "No matching offers found",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Slate900
+                            )
+                            Text(
+                                "Try clearing filters or searching a different brand or pack size.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Slate500
+                            )
+                        }
+                    }
+                }
+            } else {
+                items(filteredProducts) { product ->
+                    val identicals = filteredProducts.filter { it.isIdenticalTo(product) }
+                    val minPrice = identicals.minByOrNull { it.currentPrice }?.currentPrice ?: Double.MAX_VALUE
+                    val isCheapest = identicals.size > 1 && product.currentPrice <= minPrice
 
-                val (nearestBranch, distanceKm) = viewModel.getNearestBranchAndDistance(product.retailerId)
-                SearchResultItem(
-                    product = product,
-                    store = viewModel.getStore(product.retailerId),
-                    isCheapest = isCheapest,
-                    distanceKm = distanceKm ?: 1.2,
-                    nearestBranchName = nearestBranch?.name,
-                    onAddToList = { onAddToList(product) },
-                    onClick = { onNavigateToProduct(product.id) },
-                    onStoreClick = { product.retailerId?.let { onNavigateToRetailer(it) } }
-                )
+                    val (nearestBranch, distanceKm) = viewModel.getNearestBranchAndDistance(product.retailerId)
+                    SearchResultItem(
+                        product = product,
+                        store = viewModel.getStore(product.retailerId),
+                        isCheapest = isCheapest,
+                        distanceKm = distanceKm,
+                        nearestBranchName = nearestBranch?.name,
+                        onAddToList = { onAddToList(product) },
+                        onClick = { onNavigateToProduct(product.id) },
+                        onStoreClick = { onNavigateToRetailer(product.retailerId) }
+                    )
+                }
             }
 
             item { MissingItemBanner() }
@@ -511,10 +542,11 @@ fun SearchResultItem(
     onStoreClick: () -> Unit = {},
     onAddToList: () -> Unit
 ) {
-    val unitPrice = if (product.unitSize > 0) product.currentPrice / product.unitSize else product.currentPrice / 5.0
-    val unitSizeLabel = if (product.name.contains("5kg", ignoreCase = true)) "1kg" else "1 unit"
-    val savings = if (product.oldPrice != null && product.oldPrice > product.currentPrice) product.oldPrice - product.currentPrice else 0.0
-    val savedPercentage = if (product.oldPrice != null && product.oldPrice > 0) ((savings / product.oldPrice) * 100).toInt() else 21
+    val unitPriceText = com.example.domain.basket.OfferEligibility.computeUnitPriceText(product)
+    val comparisonOldPrice = product.oldPrice
+    val hasValidComparisonPrice = comparisonOldPrice != null && comparisonOldPrice > product.currentPrice
+    val savings = if (hasValidComparisonPrice) (comparisonOldPrice!! - product.currentPrice) else 0.0
+    val savedPercentage = if (hasValidComparisonPrice && comparisonOldPrice!! > 0) ((savings / comparisonOldPrice) * 100).toInt() else 0
 
     Surface(
         modifier = Modifier
@@ -557,40 +589,37 @@ fun SearchResultItem(
                     color = Slate900
                 )
                 Text(
-                    text = product.category.ifBlank { "Basmati Rice" },
+                    text = product.category.ifBlank { "General" },
                     style = MaterialTheme.typography.labelSmall,
                     color = Slate400
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    val sourceBadgeText = when (product.verificationLabel) {
+                        "merchant_confirmed" -> "Merchant Confirmed"
+                        "admin_reviewed" -> "Reviewed Offer"
+                        else -> "Flyer Listing"
+                    }
                     Surface(
-                        color = Color(0xFFDCFCE7),
+                        color = Color(0xFFF1F5F9),
                         shape = RoundedCornerShape(6.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
+                        Text(
+                            text = sourceBadgeText,
+                            color = Slate600,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                "4.6",
-                                color = Color(0xFF15803D),
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.width(2.dp))
-                            Text(
-                                "★",
-                                color = Color(0xFF15803D),
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp)
-                            )
-                        }
+                        )
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "$unitSizeLabel = AED %.2f".format(unitPrice),
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = Slate500
-                    )
+                    if (unitPriceText != null) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = unitPriceText,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            color = Slate500
+                        )
+                    }
                 }
             }
             Spacer(modifier = Modifier.width(8.dp))
@@ -619,20 +648,24 @@ fun SearchResultItem(
                     style = MaterialTheme.typography.titleMedium,
                     color = if (isCheapest) Color(0xFFDC2626) else Slate900
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "AED %.2f".format(product.oldPrice ?: (product.currentPrice * 1.25)),
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = Slate400,
-                        textDecoration = TextDecoration.LineThrough
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "-$savedPercentage%",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = Color(0xFFDC2626),
-                        fontWeight = FontWeight.Bold
-                    )
+                if (hasValidComparisonPrice) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "AED %.2f".format(product.oldPrice),
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            color = Slate400,
+                            textDecoration = TextDecoration.LineThrough
+                        )
+                        if (savedPercentage > 0) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "-$savedPercentage%",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                color = Color(0xFFDC2626),
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -645,13 +678,13 @@ fun SearchResultItem(
                     Spacer(modifier = Modifier.width(4.dp))
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
-                            text = store?.name ?: "Nesto Hypermarket",
+                            text = store?.name ?: "Unknown Retailer",
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                             color = Slate600,
                             maxLines = 1
                         )
                         Text(
-                            text = "%.1f km away".format(distanceKm ?: 1.2),
+                            text = if (distanceKm != null) "%.1f km straight-line".format(distanceKm) else "Distance unavailable",
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                             color = Slate400
                         )
