@@ -10,6 +10,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { findBestMasterMatch } from '../lib/matching';
 import { trackEvent } from '../lib/analytics';
+import { aedToFils, normalizeQuantityUnit, validateOfferForPublish } from '../lib/offerContract';
+import { functions } from '../firebase';
+import { httpsCallable } from 'firebase/functions';
 import { where } from 'firebase/firestore';
 import { 
   renderPdfToCanvases, 
@@ -21,13 +24,13 @@ export default function OcrReview() {
   const { jobId } = useParams();
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { user, isAdminUser, isRetailerUser } = useAuth();
+  const { user, isAdminUser, isModeratorTeam, isRetailerUser } = useAuth();
+  const canPublish = isAdminUser || isModeratorTeam;
   const { data: flyers, update: updateFlyer } = useCollection<any>('flyers', {
     constraints: isRetailerUser && user.retailerId ? [where('retailerId', '==', user.retailerId)] : [],
     enabled: Boolean(user.role),
     filterKey: `${user.role}:${user.retailerId || ''}`
   });
-  const { add: addProduct } = useCollection('products', { enabled: false });
   const { data: masterProducts } = useCollection<any>('masterProducts');
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -49,9 +52,18 @@ export default function OcrReview() {
 
   // Zoom & Pan state
   const [zoomLevel, setZoomLevel] = useState(1.0);
+  const [isPublishing, setIsPublishing] = useState(false);
 
   const flyer = useMemo(() => flyers.find(f => f.id === jobId), [flyers, jobId]);
   const imageContainerRef = useRef<HTMLDivElement>(null);
+
+  // Hydrate previously submitted pendingItems when a reviewer opens a submitted flyer
+  useEffect(() => {
+    if (flyer && Array.isArray(flyer.pendingItems) && flyer.pendingItems.length > 0 && products.length === 0) {
+      setProducts(flyer.pendingItems);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flyer]);
 
   useEffect(() => {
     if (flyer && pagesCanvases.length === 0 && !isOcrProcessing && !displayedImage) {
@@ -133,8 +145,7 @@ export default function OcrReview() {
         const matchInfo = matchProductToMaster(item.name, undefined, item.brand, item.unitSize, item.unitType);
         return {
           ...item,
-          matchedId: matchInfo.masterId,
-          confidence: matchInfo.masterId ? Math.max(item.confidence, matchInfo.confidence) : item.confidence
+          matchedId: matchInfo.masterId
         };
       });
 
@@ -173,11 +184,11 @@ export default function OcrReview() {
   };
 
   const matchProductToMaster = (name: string, barcode?: string, brand?: string, unitSize?: string, unitType?: string) => {
-    if (!masterProducts || masterProducts.length === 0) return { masterId: null, confidence: 50 };
+    if (!masterProducts || masterProducts.length === 0) return { masterId: null, matchType: 'NONE' };
     const res = findBestMasterMatch({ name, barcode, brand, unitSize, unitType }, masterProducts);
     return {
       masterId: res.masterId,
-      confidence: res.masterId ? res.confidence : 75
+      matchType: res.matchType
     };
   };
 
@@ -186,7 +197,17 @@ export default function OcrReview() {
   };
 
   const updateProduct = (id: string, field: keyof ExtractedProductItem, value: any) => {
-    setProducts(products.map(p => (p.id === id ? { ...p, [field]: value } : p)));
+    setProducts(
+      products.map(p => {
+        if (p.id !== id) return p;
+        const edited = Array.from(new Set([...(p.editedFields || []), String(field)]));
+        return { ...p, [field]: value, editedFields: edited };
+      })
+    );
+  };
+
+  const toggleAcknowledge = (id: string) => {
+    setProducts(products.map(p => (p.id === id ? { ...p, acknowledged: !p.acknowledged } : p)));
   };
 
   const removeProduct = (id: string) => {
@@ -201,15 +222,62 @@ export default function OcrReview() {
       category: 'General',
       currentPrice: 0.0,
       oldPrice: 0.0,
-      unitSize: '',
-      unitType: '',
+      unitSize: '1',
+      unitType: 'unit',
+      packCount: 1,
       discount: '',
-      imageUrl: displayedImage || '',
-      confidence: 100,
+      promoConditions: '',
+      imageUrl: '',
+      reviewReasons: ['MANUAL_ENTRY'],
+      acknowledged: false,
+      editedFields: ['manual'],
       sourcePage: currentPageIndex + 1,
       isEdit: true
     };
     setProducts([newItem, ...products]);
+  };
+
+  const getItemErrors = (p: ExtractedProductItem): string[] => {
+    const unit = normalizeQuantityUnit(p.unitSize, p.unitType, p.packCount || 1);
+    const amountMinor = Number(p.currentPrice) > 0 ? aedToFils(Number(p.currentPrice)) : 0;
+    const oldNum = Number(p.oldPrice) || 0;
+    const comparisonPriceMinor = oldNum > 0 ? aedToFils(oldNum) : null;
+    const check = validateOfferForPublish({
+      retailerId: flyer?.retailerId || '',
+      nameEn: p.name,
+      brand: p.brand,
+      amountMinor,
+      comparisonPriceMinor,
+      baseQuantity: unit?.baseQuantity ?? null,
+      baseUnit: unit?.baseUnit ?? null,
+      packCount: unit?.packCount ?? (p.packCount || 1),
+      validFromMs: flyer?.validFrom || Date.now() - 1000,
+      validToMs: flyer?.validTo || Date.now() + 14 * 86400000,
+      sourceType: flyer?.sourceType || 'merchant_upload',
+      sourceAssetId: flyer?.sourceAssetId || flyer?.pdfUrl || flyer?.imageUrl || 'flyer-asset',
+      sourceBox: p.box2d ?? null,
+      verificationMethod: canPublish ? 'admin_review' : 'merchant_review'
+    });
+    return check.errors;
+  };
+
+  const unresolvedProducts = useMemo(() => {
+    return products.filter(p => {
+      const hasUnackedFlags = (p.reviewReasons?.length ?? 0) > 0 && !p.acknowledged;
+      const hasValidationErrors = getItemErrors(p).length > 0;
+      return hasUnackedFlags || hasValidationErrors;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products, flyer]);
+
+  const jumpToNextUnresolved = () => {
+    if (unresolvedProducts.length === 0) return;
+    const currentIdx = unresolvedProducts.findIndex(p => p.id === selectedProductId);
+    const nextItem = unresolvedProducts[(currentIdx + 1) % unresolvedProducts.length];
+    setSelectedProductId(nextItem.id);
+    if (nextItem.sourcePage - 1 !== currentPageIndex && pagesCanvases[nextItem.sourcePage - 1]) {
+      handlePageChange(nextItem.sourcePage - 1);
+    }
   };
 
   const filteredProducts = useMemo(() => {
@@ -245,65 +313,89 @@ export default function OcrReview() {
   };
 
   const handleBulkPublish = async () => {
-    const productStatus = isAdminUser ? 'published' : 'pending_admin_review';
+    if (!jobId || !flyer) return;
+    if (unresolvedProducts.length > 0) {
+      showToast(`Resolve or acknowledge ${unresolvedProducts.length} flagged item(s) before continuing.`, 'error');
+      return;
+    }
+    if (products.length > 300) {
+      showToast('Atomic batch limit is 300 items per flyer. Split items before publishing.', 'error');
+      return;
+    }
 
+    setIsPublishing(true);
     try {
-      showToast('Publishing products with cropped catalogue images...', 'info');
-      
-      // Bulk insert all products with their real cropped images
-      await Promise.all(
-        products.map(p =>
-          addProduct({
+      if (canPublish) {
+        showToast('Running atomic server-side publication gate...', 'info');
+        const nextRevision = (Number(flyer.activePublicationRevision) || 0) + 1;
+        const idempotencyKey = `${jobId}_rev${nextRevision}_${products.length}`;
+        const publishCallable = httpsCallable(functions, 'publishFlyer');
+        const result: any = await publishCallable({
+          flyerId: jobId,
+          retailerId: flyer.retailerId,
+          idempotencyKey,
+          publicationRevision: nextRevision,
+          validFromMs: flyer.validFrom || Date.now() - 1000,
+          validToMs: flyer.validTo || Date.now() + 14 * 86400000,
+          sourceType: flyer.sourceType || 'merchant_upload',
+          sourceAssetId: flyer.sourceAssetId || flyer.pdfUrl || flyer.imageUrl || `flyer-${jobId}`,
+          items: products.map(p => ({
+            itemId: p.id,
             name: p.name,
-            currentPrice: Number(p.currentPrice) || 0,
-            oldPrice: Number(p.oldPrice) || null,
+            brand: p.brand || '',
             category: p.category || 'General',
-            brand: p.brand || 'Flyer Deal',
-            retailerId: flyer?.retailerId || 'Unknown Retailer',
-            flyerId: flyer?.id || '',
-            unitSize: p.unitSize ? parseFloat(p.unitSize) || 1.0 : 1.0,
-            unitType: p.unitType || 'unit',
-            validFrom: flyer?.validFrom || Date.now(),
-            validTo: flyer?.validTo || (Date.now() + 14 * 86400000),
-            status: productStatus,
             masterProductId: (p as any).matchedId || '',
-            barcode: '',
-            imageUrl: p.imageUrl || '' // Real cropped catalogue image
-          })
-        )
-      );
-
-      if (jobId) {
-        const nextFlyerStatus = isAdminUser ? 'published' : 'pending_admin_review';
-        const actionLabel = isAdminUser ? 'Published via Automated Extraction' : 'Submitted for Review';
-
-        const newAuditLog = {
-          status: nextFlyerStatus,
-          user: user?.email || 'Admin',
-          timestamp: new Date().toISOString(),
-          action: actionLabel
-        };
-
-        const auditLogHistory = flyer?.auditLog || [];
-        await updateFlyer(jobId, {
-          status: nextFlyerStatus,
-          updatedAt: new Date().toISOString(),
-          auditLog: [...auditLogHistory, newAuditLog]
+            currentPrice: Number(p.currentPrice) || 0,
+            oldPrice: Number(p.oldPrice) > 0 ? Number(p.oldPrice) : null,
+            unitSize: p.unitSize || '1',
+            unitType: p.unitType || 'unit',
+            packCount: p.packCount || 1,
+            promoConditions: p.promoConditions || '',
+            imageUrl: p.imageUrl || '',
+            sourcePage: p.sourcePage,
+            sourceBox: p.box2d ?? null,
+            reviewReasons: p.reviewReasons || [],
+            acknowledged: Boolean(p.acknowledged),
+            editedFields: p.editedFields || [],
+            modelName: p.modelName,
+            promptRevision: p.promptRevision
+          }))
         });
 
         await trackEvent('ocr_metrics', {
           flyerId: jobId,
           totalProducts: products.length,
+          editedCount: products.filter(p => (p.editedFields?.length ?? 0) > 0).length,
           engineUsed,
+          idempotentReplay: Boolean(result?.data?.idempotentReplay),
           timestamp: Date.now()
-        });
-      }
+        }, flyer.retailerId);
 
-      showToast(isAdminUser ? `All ${products.length} products published with real images!` : 'Submitted for admin review', 'success');
-      navigate(isAdminUser ? '/products' : '/flyers');
-    } catch (e) {
+        showToast(`Atomically published ${products.length} verified offers!`, 'success');
+        navigate('/products');
+      } else {
+        // Retailer staff submits reviewed items for moderator/admin approval; never self-publishes
+        const newAuditLog = {
+          status: 'pending_admin_review',
+          user: user?.email || 'Retailer Staff',
+          timestamp: new Date().toISOString(),
+          action: 'Submitted Reviewed Extraction for Admin Approval'
+        };
+        const auditLogHistory = flyer?.auditLog || [];
+        await updateFlyer(jobId, {
+          status: 'pending_admin_review',
+          pendingItems: products,
+          updatedAt: Date.now(),
+          auditLog: [...auditLogHistory, newAuditLog]
+        });
+        showToast('Submitted reviewed offers for admin publication approval.', 'success');
+        navigate('/flyers');
+      }
+    } catch (e: any) {
       console.error(e);
-      showToast('Failed to publish products. Please check connection.', 'error');
+      showToast(e?.message || 'Publication gate rejected request. No partial offers published.', 'error');
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -353,6 +445,15 @@ export default function OcrReview() {
             Re-Extract
           </button>
 
+          {unresolvedProducts.length > 0 && (
+            <button
+              onClick={jumpToNextUnresolved}
+              className="px-3 py-2 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl font-bold text-xs hover:bg-amber-100 shadow-xs"
+            >
+              Next Unresolved ({unresolvedProducts.length})
+            </button>
+          )}
+
           <button
             onClick={saveDraft}
             className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold text-xs uppercase tracking-wide hover:bg-slate-50 shadow-xs"
@@ -362,13 +463,13 @@ export default function OcrReview() {
 
           <button
             onClick={handleBulkPublish}
-            disabled={isOcrProcessing || products.length === 0}
+            disabled={isOcrProcessing || isPublishing || products.length === 0 || unresolvedProducts.length > 0}
             className={`px-5 py-2 text-white rounded-xl font-bold text-xs uppercase tracking-wide flex items-center gap-2 shadow-sm transition-all hover:opacity-95 disabled:opacity-50 ${
-              isAdminUser ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-indigo-600 hover:bg-indigo-700'
+              canPublish ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-indigo-600 hover:bg-indigo-700'
             }`}
           >
             <CheckCircle className="w-4 h-4" />
-            {isAdminUser ? `Publish All (${products.length})` : `Submit for Review (${products.length})`}
+            {canPublish ? `Publish All (${products.length})` : `Submit for Review (${products.length})`}
           </button>
         </div>
       </div>
@@ -596,7 +697,7 @@ export default function OcrReview() {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-4 gap-2 pt-2 border-t border-slate-100">
+                        <div className="grid grid-cols-5 gap-2 pt-2 border-t border-slate-100">
                           <div>
                             <label className="text-[9px] uppercase font-bold text-slate-400">Price (AED)</label>
                             <input
@@ -608,7 +709,7 @@ export default function OcrReview() {
                             />
                           </div>
                           <div>
-                            <label className="text-[9px] uppercase font-bold text-slate-400">Old Price</label>
+                            <label className="text-[9px] uppercase font-bold text-slate-400">Printed Was</label>
                             <input
                               type="number"
                               step="0.01"
@@ -627,7 +728,7 @@ export default function OcrReview() {
                             />
                           </div>
                           <div>
-                            <label className="text-[9px] uppercase font-bold text-slate-400">Unit Type</label>
+                            <label className="text-[9px] uppercase font-bold text-slate-400">Unit</label>
                             <input
                               type="text"
                               value={p.unitType}
@@ -635,6 +736,27 @@ export default function OcrReview() {
                               className="w-full text-xs border-b border-slate-200 focus:border-indigo-500 outline-none py-0.5 bg-transparent"
                             />
                           </div>
+                          <div>
+                            <label className="text-[9px] uppercase font-bold text-slate-400">Pack</label>
+                            <input
+                              type="number"
+                              min={1}
+                              value={p.packCount || 1}
+                              onChange={e => updateProduct(p.id, 'packCount', Math.max(1, parseInt(e.target.value, 10) || 1))}
+                              className="w-full text-xs border-b border-slate-200 focus:border-indigo-500 outline-none py-0.5 bg-transparent"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-[9px] uppercase font-bold text-slate-400">Promo Conditions (BOGO / Min Qty / Loyalty)</label>
+                          <input
+                            type="text"
+                            value={p.promoConditions || ''}
+                            onChange={e => updateProduct(p.id, 'promoConditions', e.target.value)}
+                            placeholder="e.g. Buy 2 get 1 free, Clubcard required"
+                            className="w-full text-xs border-b border-slate-200 focus:border-indigo-500 outline-none py-0.5 bg-transparent"
+                          />
                         </div>
 
                         <div className="flex justify-end pt-1">
@@ -722,15 +844,39 @@ export default function OcrReview() {
                             )}
                           </div>
 
-                          <div className="flex items-center gap-2 mt-2">
-                            {p.confidence >= 80 ? (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800">
-                                <CheckCircle className="w-2.5 h-2.5" /> Auto-Captured
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800">
-                                <AlertTriangle className="w-2.5 h-2.5" /> Review Price
-                              </span>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                            {(() => {
+                              const rowErrors = getItemErrors(p);
+                              const flags = [...(p.reviewReasons || []), ...rowErrors];
+                              if (flags.length === 0 || (p.acknowledged && rowErrors.length === 0)) {
+                                return (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800">
+                                    <CheckCircle className="w-2.5 h-2.5" /> Verified
+                                  </span>
+                                );
+                              }
+                              return flags.slice(0, 3).map((flag, idx) => (
+                                <span key={idx} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800">
+                                  <AlertTriangle className="w-2.5 h-2.5" /> {flag.replace(/_/g, ' ')}
+                                </span>
+                              ));
+                            })()}
+
+                            {(p.reviewReasons?.length ?? 0) > 0 && getItemErrors(p).length === 0 && (
+                              <button
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  toggleAcknowledge(p.id);
+                                }}
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${
+                                  p.acknowledged
+                                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                                    : 'bg-white border-amber-300 text-amber-800 hover:bg-amber-50'
+                                }`}
+                              >
+                                <Check className="w-2.5 h-2.5" />
+                                {p.acknowledged ? 'Acknowledged' : 'Confirm Row'}
+                              </button>
                             )}
 
                             {(p as any).matchedId && (

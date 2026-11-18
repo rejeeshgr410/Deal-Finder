@@ -17,12 +17,15 @@ export interface ExtractedProductItem {
   oldPrice: number;
   unitSize: string;
   unitType: string;
+  packCount: number;
   discount: string;
   promoConditions?: string;
+  rawSnippet?: string;
   imageUrl: string; // Cropped product image data URL
   box2d?: [number, number, number, number]; // [ymin, xmin, ymax, xmax] 0-1000
-  confidence: number;
-  reviewReasons?: string[];
+  reviewReasons: string[];
+  acknowledged: boolean;
+  editedFields: string[];
   modelName?: string;
   promptRevision?: string;
   sourcePage: number;
@@ -153,7 +156,7 @@ export async function extractWithGeminiVision(
         unitType: string;
         discount: string;
         promoConditions: string;
-        box2d: [number, number, number, number];
+        box2d: [number, number, number, number] | null;
         sourcePage: number;
         reviewReasons: string[];
         modelName: string;
@@ -173,13 +176,15 @@ export async function extractWithGeminiVision(
   const rawProducts = res.data?.products || [];
 
   return rawProducts.map((p, idx) => {
-    const box2d: [number, number, number, number] =
-      Array.isArray(p.box2d) && p.box2d.length === 4 ? p.box2d : [100, 100, 400, 400];
-
-    const croppedImage = cropProductFromCanvas(canvas, box2d);
+    const validBox = Array.isArray(p.box2d) && p.box2d.length === 4 ? p.box2d : undefined;
+    const croppedImage = validBox ? cropProductFromCanvas(canvas, validBox) : '';
+    const reasons = Array.isArray(p.reviewReasons) ? [...p.reviewReasons] : [];
+    if (!validBox && !reasons.includes('BOUNDING_BOX_INVALID')) {
+      reasons.push('BOUNDING_BOX_INVALID');
+    }
 
     return {
-      id: `gemini-${Date.now()}-${idx}`,
+      id: `gemini-${pageNumber}-${idx}`,
       name: p.name || 'Unnamed Product',
       brand: p.brand || '',
       category: p.category || 'General',
@@ -187,12 +192,14 @@ export async function extractWithGeminiVision(
       oldPrice: typeof p.oldPrice === 'number' ? p.oldPrice : 0,
       unitSize: p.unitSize ? String(p.unitSize) : '',
       unitType: p.unitType || '',
+      packCount: 1,
       discount: p.discount || '',
       promoConditions: p.promoConditions || '',
       imageUrl: croppedImage,
-      box2d,
-      confidence: (p.reviewReasons?.length ?? 0) === 0 ? 85 : 60,
-      reviewReasons: p.reviewReasons || [],
+      box2d: validBox,
+      reviewReasons: reasons,
+      acknowledged: reasons.length === 0,
+      editedFields: [],
       modelName: p.modelName,
       promptRevision: p.promptRevision,
       sourcePage: pageNumber,
@@ -279,7 +286,7 @@ export async function extractWithSmartGridOcr(
       const cropped = cropProductFromCanvas(canvas, box2d);
 
       items.push({
-        id: `ocr-${Date.now()}-${items.length}`,
+        id: `ocr-${pageNumber}-${items.length}`,
         name: nameCandidate,
         brand: '',
         category: 'General',
@@ -287,10 +294,14 @@ export async function extractWithSmartGridOcr(
         oldPrice: 0,
         unitSize: '',
         unitType: '',
+        packCount: 1,
         discount: '',
+        rawSnippet: item.text,
         imageUrl: cropped,
         box2d,
-        confidence: 78,
+        reviewReasons: ['OCR_ONLY_FALLBACK', 'UNIT_OR_PACK_UNSPECIFIED'],
+        acknowledged: false,
+        editedFields: [],
         sourcePage: pageNumber,
         isEdit: false
       });
@@ -311,7 +322,7 @@ export async function extractWithSmartGridOcr(
         const cropped = cropProductFromCanvas(canvas, box2d);
 
         items.push({
-          id: `grid-${Date.now()}-${items.length}`,
+          id: `grid-${pageNumber}-${items.length}`,
           name: `Catalogue Item ${items.length + 1}`,
           brand: '',
           category: 'General',
@@ -319,10 +330,13 @@ export async function extractWithSmartGridOcr(
           oldPrice: 0.0,
           unitSize: '',
           unitType: '',
+          packCount: 1,
           discount: '',
           imageUrl: cropped,
           box2d,
-          confidence: 65,
+          reviewReasons: ['OCR_ONLY_FALLBACK', 'PRICE_ZERO_OR_MISSING', 'UNIT_OR_PACK_UNSPECIFIED', 'GRID_CROP_CANDIDATE'],
+          acknowledged: false,
+          editedFields: [],
           sourcePage: pageNumber,
           isEdit: false
         });

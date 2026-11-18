@@ -59,23 +59,26 @@ export interface SanitizedExtractedProduct {
   unitType: string;
   discount: string;
   promoConditions: string;
-  box2d: [number, number, number, number];
+  box2d: [number, number, number, number] | null;
   sourcePage: number;
   reviewReasons: string[];
   modelName: string;
   promptRevision: string;
 }
 
-export function clampBox2d(raw: number[]): { box2d: [number, number, number, number]; valid: boolean } {
+export function clampBox2d(raw: number[]): { box2d: [number, number, number, number] | null; valid: boolean } {
   if (raw.length !== 4 || raw.some((n) => !Number.isFinite(n))) {
-    return { box2d: [0, 0, 1000, 1000], valid: false };
+    return { box2d: null, valid: false };
   }
   const ymin = Math.max(0, Math.min(1000, Math.round(raw[0])));
   const xmin = Math.max(0, Math.min(1000, Math.round(raw[1])));
   const ymax = Math.max(0, Math.min(1000, Math.round(raw[2])));
   const xmax = Math.max(0, Math.min(1000, Math.round(raw[3])));
   if (ymax <= ymin || xmax <= xmin) {
-    return { box2d: [0, 0, 1000, 1000], valid: false };
+    return { box2d: null, valid: false };
+  }
+  if (ymin === 100 && xmin === 100 && ymax === 400 && xmax === 400) {
+    return { box2d: null, valid: false };
   }
   return { box2d: [ymin, xmin, ymax, xmax], valid: true };
 }

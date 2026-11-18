@@ -31,9 +31,10 @@ describe('Role assignment authorization helpers', () => {
 });
 
 describe('Gemini flyer extraction validation & sanitization', () => {
-  it('clamps valid bounding boxes and rejects inverted/non-finite boxes', () => {
+  it('clamps valid bounding boxes and rejects inverted/non-finite/guessed boxes', () => {
     expect(clampBox2d([-10, 50, 1200, 500])).toEqual({ box2d: [0, 50, 1000, 500], valid: true });
-    expect(clampBox2d([500, 500, 100, 200])).toEqual({ box2d: [0, 0, 1000, 1000], valid: false });
+    expect(clampBox2d([500, 500, 100, 200])).toEqual({ box2d: null, valid: false });
+    expect(clampBox2d([100, 100, 400, 400])).toEqual({ box2d: null, valid: false });
   });
 
   it('flags zero price, inverted comparator price, missing unit, and promo conditions without fake confidence', () => {

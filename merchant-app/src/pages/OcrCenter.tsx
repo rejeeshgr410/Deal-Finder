@@ -5,16 +5,21 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import { renderPdfToCanvases } from '../lib/flyerExtractor';
-import { storage } from '../firebase';
+import { functions, storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { httpsCallable } from 'firebase/functions';
 import { where } from 'firebase/firestore';
 
 export default function OcrCenter() {
-  const { user, isRetailerUser } = useAuth();
+  const { user, isRetailerUser, isAdminUser, isModeratorTeam } = useAuth();
   const { data: flyers, loading, add: addFlyer } = useCollection<any>('flyers', {
     constraints: isRetailerUser && user.retailerId ? [where('retailerId', '==', user.retailerId)] : [],
     enabled: Boolean(user.role),
     filterKey: `${user.role}:${user.retailerId || ''}`
+  });
+  const { data: retailers } = useCollection<any>('retailers', {
+    enabled: Boolean(user.role) && (isAdminUser || isModeratorTeam),
+    filterKey: `ret:${user.role || ''}`
   });
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -22,15 +27,18 @@ export default function OcrCenter() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isProcessingUpload, setIsProcessingUpload] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('');
+  const [selectedRetailerId, setSelectedRetailerId] = useState(user.retailerId || '');
+
+  const effectiveRetailerId = isRetailerUser ? (user.retailerId || '') : (selectedRetailerId || user.retailerId || '');
 
   const pendingJobs = flyers.filter(
-    f => f.status === 'processing' || f.status === 'ocr_review' || f.status === 'draft' || f.status === 'pending_review' || f.status === 'pending'
+    f => ['processing', 'ocr_review', 'draft', 'pending_review', 'pending', 'review_required', 'queued', 'extracting', 'pending_admin_review'].includes(f.status)
   );
 
   const handleFileSelected = async (file: File) => {
     if (!file) return;
-    if (!user?.retailerId) {
-      showToast('A verified retailerId is required before uploading flyers.', 'error');
+    if (!effectiveRetailerId) {
+      showToast('Select a retailer before uploading a flyer.', 'error');
       return;
     }
     const maxBytes = 25 * 1024 * 1024;
@@ -49,14 +57,17 @@ export default function OcrCenter() {
 
       setUploadStatus('Uploading to secure tenant storage...');
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const storageRef = ref(storage, `private_extractions/${user.retailerId}/${Date.now()}_${safeName}`);
+      const storagePath = `private_extractions/${effectiveRetailerId}/${Date.now()}_${safeName}`;
+      const storageRef = ref(storage, storagePath);
       const snapshot = await uploadBytes(storageRef, file);
       fileUrl = await getDownloadURL(snapshot.ref);
 
       // Generate cover thumbnail
+      let pageCount = 1;
       if (isPdf) {
         setUploadStatus('Rendering PDF cover preview...');
-        const { canvases } = await renderPdfToCanvases(file, 1, 1.2);
+        const { canvases, totalPages } = await renderPdfToCanvases(file, 1, 1.2);
+        pageCount = totalPages || 1;
         if (canvases.length > 0) {
           coverImageUrl = canvases[0].toDataURL('image/jpeg', 0.8);
         }
@@ -69,11 +80,13 @@ export default function OcrCenter() {
 
       const newFlyerDoc = await addFlyer({
         title: cleanTitle,
-        retailerId: user.retailerId,
-        status: 'ocr_review',
+        retailerId: effectiveRetailerId,
+        status: 'review_required',
+        sourceType: 'merchant_upload',
+        sourceAssetId: storagePath,
         pdfUrl: isPdf ? fileUrl : '',
         imageUrl: coverImageUrl || fileUrl,
-        pages: 1,
+        pages: pageCount,
         createdAt: Date.now(),
         updatedAt: Date.now(),
         validFrom: Date.now(),
@@ -81,6 +94,18 @@ export default function OcrCenter() {
         views: 0,
         clicks: 0
       });
+
+      try {
+        const createJob = httpsCallable(functions, 'createFlyerExtractionJob');
+        await createJob({
+          flyerId: newFlyerDoc.id,
+          retailerId: effectiveRetailerId,
+          sourceAssetId: storagePath,
+          totalPages: Math.min(50, pageCount)
+        });
+      } catch (jobErr) {
+        console.warn('Backend extractionJob log skipped (offline/unconfigured):', jobErr);
+      }
 
       showToast('Flyer uploaded! Starting automatic product extraction...', 'success');
       navigate(`/ocr/${newFlyerDoc.id}`);
@@ -136,6 +161,21 @@ export default function OcrCenter() {
             </h3>
 
             <div className="space-y-4 flex-1 flex flex-col">
+              {(isAdminUser || isModeratorTeam) && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Target Retailer</label>
+                  <select
+                    value={selectedRetailerId}
+                    onChange={e => setSelectedRetailerId(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl bg-slate-50 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none"
+                  >
+                    <option value="">Select retailer...</option>
+                    {retailers.map((r: any) => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div
                 onClick={() => !isProcessingUpload && fileInputRef.current?.click()}
                 onDragOver={e => e.preventDefault()}
@@ -161,7 +201,7 @@ export default function OcrCenter() {
                       <Upload className="w-7 h-7" />
                     </div>
                     <p className="text-sm font-bold text-slate-900">Drop flyer PDF or images here</p>
-                    <p className="text-xs text-slate-500 mt-1">Supports PDF, JPG, PNG up to 50MB</p>
+                    <p className="text-xs text-slate-500 mt-1">Supports PDF, JPG, PNG, WebP up to 25MB</p>
                     <button
                       type="button"
                       className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold uppercase tracking-wide hover:bg-indigo-700 shadow-xs"
