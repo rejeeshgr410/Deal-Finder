@@ -8,3 +8,4 @@ export {
   unregisterFcmToken,
 } from './notifications';
 export { requestAccountDataDeletion } from './privacy';
+export { assistantQuery } from './assistant';
