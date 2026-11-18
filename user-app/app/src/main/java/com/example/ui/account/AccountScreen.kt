@@ -41,6 +41,11 @@ fun AccountScreen(
 ) {
     val currentUser by authViewModel.currentUser.collectAsState()
     val selectedEmirate by viewModel.selectedEmirate.collectAsState()
+    val savedDeals by viewModel.savedDeals.collectAsState()
+    val savedFlyers by viewModel.savedFlyers.collectAsState()
+    val followedRetailers by viewModel.followedRetailers.collectAsState()
+    val recentSearches by viewModel.recentSearches.collectAsState()
+    val shoppingListItems by listViewModel.uiState.collectAsState()
     
     Scaffold(
         containerColor = BackgroundLight
@@ -61,23 +66,32 @@ fun AccountScreen(
             }
             
             item {
-                StatPillsRow()
+                StatPillsRow(
+                    savedDealsCount = savedDeals.size,
+                    favoriteStoresCount = followedRetailers.size,
+                    shoppingListsCount = shoppingListItems.size,
+                    priceAlertsCount = 0
+                )
             }
             
             item {
-                SectionHeader(title = "My Tools", action = "View all", onAction = {})
+                SectionHeader(title = "My Tools", action = "Loyalty", onAction = onNavigateToLoyaltyCards)
                 Spacer(modifier = Modifier.height(6.dp))
                 MyToolsGrid(onNavigateToLoyaltyCards = onNavigateToLoyaltyCards)
             }
 
             item {
-                SectionHeader(title = "My Activity", action = "View all", onAction = {})
+                SectionHeader(title = "My Activity", action = "", onAction = {})
                 Spacer(modifier = Modifier.height(6.dp))
-                MyActivityCard()
+                MyActivityCard(
+                    listsCount = shoppingListItems.size,
+                    viewedCount = savedDeals.size + savedFlyers.size,
+                    searchesCount = recentSearches.size
+                )
             }
 
             item {
-                SectionHeader(title = "Saved & Followed", action = "View all", onAction = {})
+                SectionHeader(title = "Saved & Followed", action = "", onAction = {})
                 Spacer(modifier = Modifier.height(6.dp))
                 SavedFollowedStores(viewModel)
             }
@@ -222,7 +236,12 @@ fun ProfileCard(name: String, email: String) {
 }
 
 @Composable
-fun StatPillsRow() {
+fun StatPillsRow(
+    savedDealsCount: Int,
+    favoriteStoresCount: Int,
+    shoppingListsCount: Int,
+    priceAlertsCount: Int
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -231,7 +250,7 @@ fun StatPillsRow() {
     ) {
         StatPill(
             icon = Icons.Outlined.LocalOffer,
-            count = "42",
+            count = savedDealsCount.toString(),
             label = "Saved Deals",
             iconColor = Color(0xFF6D28D9),
             bgColor = Color(0xFFEDE9FE),
@@ -239,7 +258,7 @@ fun StatPillsRow() {
         )
         StatPill(
             icon = Icons.Default.Favorite,
-            count = "18",
+            count = favoriteStoresCount.toString(),
             label = "Favorite Stores",
             iconColor = Color(0xFFE11D48),
             bgColor = Color(0xFFFFE4E6),
@@ -247,7 +266,7 @@ fun StatPillsRow() {
         )
         StatPill(
             icon = Icons.AutoMirrored.Outlined.List,
-            count = "7",
+            count = shoppingListsCount.toString(),
             label = "Shopping Lists",
             iconColor = Color(0xFFD97706),
             bgColor = Color(0xFFFEF3C7),
@@ -255,7 +274,7 @@ fun StatPillsRow() {
         )
         StatPill(
             icon = Icons.Outlined.Notifications,
-            count = "12",
+            count = priceAlertsCount.toString(),
             label = "Price Alerts",
             iconColor = Color(0xFF16A34A),
             bgColor = Color(0xFFDCFCE7),
@@ -380,7 +399,11 @@ fun MyToolsGrid(onNavigateToLoyaltyCards: () -> Unit = {}) {
 }
 
 @Composable
-fun MyActivityCard() {
+fun MyActivityCard(
+    listsCount: Int,
+    viewedCount: Int,
+    searchesCount: Int
+) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -396,16 +419,16 @@ fun MyActivityCard() {
                 icon = Icons.Outlined.Assignment,
                 iconColor = Color(0xFF6D28D9),
                 bgColor = Color(0xFFEDE9FE),
-                count = "3"
+                count = listsCount.toString()
             )
             HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
             ActivityRow(
-                title = "Recently Viewed",
-                desc = "Products, flyers and deals you viewed",
+                title = "Saved Deals & Flyers",
+                desc = "Products and flyers you saved",
                 icon = Icons.Outlined.Visibility,
                 iconColor = Color(0xFFD97706),
                 bgColor = Color(0xFFFEF3C7),
-                count = "23"
+                count = viewedCount.toString()
             )
             HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
             ActivityRow(
@@ -414,7 +437,7 @@ fun MyActivityCard() {
                 icon = Icons.Outlined.History,
                 iconColor = Color(0xFF16A34A),
                 bgColor = Color(0xFFDCFCE7),
-                count = "15"
+                count = searchesCount.toString()
             )
         }
     }

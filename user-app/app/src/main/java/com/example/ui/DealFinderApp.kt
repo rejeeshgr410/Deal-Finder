@@ -56,11 +56,19 @@ fun DealFinderApp(
     locationManager: com.example.data.LocationManager,
     loyaltyCardDao: com.example.data.LoyaltyCardDao? = null,
     localeManager: com.example.data.LocaleManager? = null,
-    initialRoute: String = Screen.Home.route
+    initialRoute: String = Screen.Coupons.route
 ) {
     val navController = rememberNavController()
-    
+    val navigateToTab: (String) -> Unit = { route ->
+        navController.navigate(route) {
+            popUpTo(navController.graph.startDestinationId) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
     val items = listOf(
+        Screen.Coupons,
         Screen.Home,
         Screen.Search,
         Screen.Lists,
@@ -94,7 +102,7 @@ fun DealFinderApp(
                                 shape = RoundedCornerShape(18.dp),
                                 color = MockupYellowPill,
                                 modifier = Modifier
-                                    .width(68.dp)
+                                    .weight(1f)
                                     .height(52.dp)
                             ) {
                                 Column(
@@ -122,15 +130,11 @@ fun DealFinderApp(
                         } else {
                             Column(
                                 modifier = Modifier
-                                    .width(64.dp)
+                                    .weight(1f)
                                     .height(52.dp)
                                     .clip(RoundedCornerShape(18.dp))
                                     .clickable {
-                                        navController.navigate(screen.route) {
-                                            popUpTo(navController.graph.startDestinationId) { saveState = true }
-                                            launchSingleTop = true
-                                            restoreState = true
-                                        }
+                                        navigateToTab(screen.route)
                                     },
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center
@@ -166,15 +170,9 @@ fun DealFinderApp(
         
         val currentUserId by authViewModel.currentUserId.collectAsState()
 
-        LaunchedEffect(initialRoute) {
-            if (initialRoute != Screen.Home.route) {
-                navController.navigate(initialRoute)
-            }
-        }
-
         NavHost(
             navController = navController,
-            startDestination = Screen.Home.route,
+            startDestination = initialRoute,
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Screen.Auth.route) {
@@ -188,10 +186,10 @@ fun DealFinderApp(
                 HomeScreen(
                     viewModel = dealViewModel,
                     userName = currentUser?.name ?: "Guest",
-                    onNavigateToCompare = { navController.navigate(Screen.Search.route) },
-                    onNavigateToFlyers = { navController.navigate(Screen.Deals.route) },
-                    onNavigateToList = { navController.navigate(Screen.Lists.route) },
-                    onNavigateToCoupons = { navController.navigate(Screen.Coupons.route) },
+                    onNavigateToCompare = { navigateToTab(Screen.Search.route) },
+                    onNavigateToFlyers = { navigateToTab(Screen.Deals.route) },
+                    onNavigateToList = { navigateToTab(Screen.Lists.route) },
+                    onNavigateToCoupons = { navigateToTab(Screen.Coupons.route) },
                     onNavigateToLocation = { navController.navigate(Screen.Location.route) },
                     onNavigateToNotifications = { navController.navigate(Screen.Notifications.route) },
                     onNavigateToFlyer = { flyerId -> navController.navigate(Screen.FlyerViewer.createRoute(flyerId)) },
@@ -232,7 +230,7 @@ fun DealFinderApp(
                     onNavigateToProduct = { productId -> navController.navigate(Screen.ProductDetail.createRoute(productId)) },
                     onNavigateToRetailer = { retailerId -> navController.navigate(Screen.Retailer.createRoute(retailerId)) },
                     onNavigateToFlyer = { flyerId -> navController.navigate(Screen.FlyerViewer.createRoute(flyerId)) },
-                    onNavigateToList = { navController.navigate(Screen.Lists.route) }
+                    onNavigateToList = { navigateToTab(Screen.Lists.route) }
                 ) 
             }
             composable(Screen.Lists.route) {
@@ -248,7 +246,7 @@ fun DealFinderApp(
                         dealViewModel = dealViewModel,
                         onNavigateToLocation = { navController.navigate(Screen.Location.route) },
                         onNavigateToNotifications = { navController.navigate(Screen.NotificationSettings.route) },
-                        onNavigateToCompare = { navController.navigate(Screen.Search.route) }
+                        onNavigateToCompare = { navigateToTab(Screen.Search.route) }
                     )
                 }
             }
@@ -271,15 +269,7 @@ fun DealFinderApp(
                 }
             }
             composable(Screen.Coupons.route) {
-                if (currentUserId == null) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                        Button(onClick = { navController.navigate(Screen.Auth.route) }) {
-                            Text("Log in to view Coupons")
-                        }
-                    }
-                } else {
-                    CouponsScreen(viewModel = dealViewModel)
-                }
+                CouponsScreen(viewModel = dealViewModel)
             }
             composable(Screen.Notifications.route) {
                 if (currentUserId == null) {

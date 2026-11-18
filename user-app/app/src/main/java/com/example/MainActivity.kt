@@ -40,7 +40,7 @@ class MainActivity : ComponentActivity() {
     val themeManager = com.example.data.ThemeManager(applicationContext)
     val localeManager = com.example.data.LocaleManager(applicationContext)
     
-    val initialRoute = intent?.getStringExtra("route") ?: com.example.ui.Screen.Home.route
+    val initialRoute = intent?.getStringExtra("route") ?: com.example.ui.Screen.Coupons.route
 
     setContent {
       val themeMode by themeManager.themeMode.collectAsState()

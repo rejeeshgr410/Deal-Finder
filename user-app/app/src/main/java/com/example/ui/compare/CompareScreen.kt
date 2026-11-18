@@ -282,15 +282,15 @@ fun CompareScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        val displayQuery = if (searchQuery.isNotBlank()) "\"$searchQuery\"" else "\"rice 5kg\""
+                        val headingText = if (searchQuery.isNotBlank()) "Results for \"$searchQuery\"" else "All Deals"
                         Text(
-                            text = "Results for $displayQuery",
+                            text = headingText,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = Slate900
                         )
                         Text(
-                            text = "${if (filteredProducts.isNotEmpty()) filteredProducts.size else 128} results found",
+                            text = "${filteredProducts.size} results found",
                             style = MaterialTheme.typography.labelSmall,
                             color = Slate400
                         )

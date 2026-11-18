@@ -90,6 +90,10 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
         }
     }
 
+    fun setError(message: String) {
+        _authState.value = AuthState.Error(message)
+    }
+
     fun logout() {
         repository.logout()
         _authState.value = AuthState.Idle

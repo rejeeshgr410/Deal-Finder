@@ -1,5 +1,6 @@
 package com.example.data
 
+@com.google.firebase.firestore.IgnoreExtraProperties
 data class UserEntity(
     val id: String = "",
     val name: String = "",
@@ -63,7 +64,9 @@ data class ProductEntity(
     val unitType: String = "unit",
     val validFrom: Long = 0L,
     val validTo: Long = 0L,
-    val status: String = "published"
+    val status: String = "published",
+    val createdAt: Long = 0L,
+    val updatedAt: Long = 0L
 )
 
 fun ProductEntity.isIdenticalTo(other: ProductEntity): Boolean {
@@ -155,6 +158,7 @@ data class DealEntity(
     val expiry: Long = 0L
 )
 
+@com.google.firebase.firestore.IgnoreExtraProperties
 data class CouponEntity(
     val id: String = "",
     val retailerId: String = "",
@@ -162,7 +166,15 @@ data class CouponEntity(
     val code: String = "",
     val discountInfo: String = "",
     val expiry: Long = 0L,
-    val status: String = "published"
+    val status: String = "published",
+    val storeName: String = "",
+    val domain: String = "",
+    val category: String = "",
+    val description: String = "",
+    val isGlobal: Boolean = false,
+    val isFeatured: Boolean = false,
+    val createdAt: Long = 0L,
+    val updatedAt: Long = 0L
 )
 
 data class BranchEntity(
@@ -185,7 +197,9 @@ data class PromotionEntity(
     val discount: Double = 0.0,
     val validFrom: Long = 0L,
     val validTo: Long = 0L,
-    val status: String = "published"
+    val status: String = "published",
+    val createdAt: Long = 0L,
+    val updatedAt: Long = 0L
 )
 
 data class SearchHistoryEntity(

@@ -53,24 +53,22 @@ class AuthRepository(private val dao: DealFinderDao, private val session: Sessio
     }
 
     suspend fun googleSignIn(idToken: String) {
-        try {
-            val credential = GoogleAuthProvider.getCredential(idToken, null)
-            val authResult = auth.signInWithCredential(credential).await()
-            val uid = authResult.user?.uid ?: return
-            
-            val user = dao.getUserById(uid)
-            if (user == null) {
-                dao.insertUser(
-                    UserEntity(
-                        id = uid,
-                        name = authResult.user?.displayName ?: "Google User",
-                        email = authResult.user?.email ?: "user@gmail.com",
-                        passwordHash = "", // Oauth users may not have passwords
-                        isGuest = false
-                    )
+        val credential = GoogleAuthProvider.getCredential(idToken, null)
+        val authResult = auth.signInWithCredential(credential).await()
+        val uid = authResult.user?.uid ?: throw IllegalStateException("Google Sign-In failed: missing user ID")
+
+        val user = dao.getUserById(uid)
+        if (user == null) {
+            dao.insertUser(
+                UserEntity(
+                    id = uid,
+                    name = authResult.user?.displayName ?: "Google User",
+                    email = authResult.user?.email ?: "user@gmail.com",
+                    passwordHash = "", // Oauth users may not have passwords
+                    isGuest = false
                 )
-            }
-        } catch (e: Exception) {}
+            )
+        }
     }
 
     suspend fun saveFcmToken(userId: String) {

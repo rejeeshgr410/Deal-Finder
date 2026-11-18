@@ -116,3 +116,21 @@ inline fun <reified T> Query.asFlow(): Flow<List<T>> = callbackFlow {
     }
     awaitClose { listener.remove() }
 }
+
+inline fun <reified T> com.google.firebase.firestore.DocumentReference.asDocumentFlow(): Flow<T?> = callbackFlow {
+    val listener = addSnapshotListener { snapshot, error ->
+        if (error != null) {
+            android.util.Log.e("FirebaseManager", "Firestore document error", error)
+        }
+        if (snapshot != null && snapshot.exists()) {
+            try {
+                trySend(snapshot.toObject(T::class.java))
+            } catch (e: Exception) {
+                android.util.Log.w("FirebaseManager", "Document mapping failed for ${T::class.simpleName}: ${e.message}")
+            }
+        } else if (snapshot != null) {
+            trySend(null)
+        }
+    }
+    awaitClose { listener.remove() }
+}

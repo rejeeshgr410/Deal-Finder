@@ -1,7 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth, db } from '../firebase';
-import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User, signInWithEmailAndPassword } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithCredential, signInWithPopup, signOut, onAuthStateChanged, User, signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { Capacitor } from '@capacitor/core';
+import { SocialLogin } from '@capgo/capacitor-social-login';
+
+const GOOGLE_WEB_CLIENT_ID = '102162589559-qu5k7vo8r5kb3pq2ijcc6p3h9q7ugsm2.apps.googleusercontent.com';
 
 export type Role = 'super_admin' | 'admin' | 'moderator' | 'data_entry' | 'retailer_owner' | 'retailer_staff' | 'pending' | 'unauthorized' | null;
 
@@ -74,6 +78,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithGoogle = async () => {
     try {
+      if (Capacitor.isNativePlatform()) {
+        await SocialLogin.initialize({
+          google: {
+            webClientId: GOOGLE_WEB_CLIENT_ID,
+            mode: 'online',
+          },
+        });
+        const res = await SocialLogin.login({
+          provider: 'google',
+          options: {},
+        });
+        if (res.result.responseType === 'online' && res.result.idToken) {
+          const credential = GoogleAuthProvider.credential(res.result.idToken);
+          await signInWithCredential(auth, credential);
+          return;
+        }
+        throw new Error('Google Sign-In did not return an ID token');
+      }
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
     } catch (error) {

@@ -102,7 +102,7 @@ class FirestoreDealFinderDao(private val db: FirebaseFirestore, private val sess
     }
 
     override fun getUserByIdFlow(userId: String): Flow<UserEntity?> {
-        return db.collection("users").whereEqualTo("id", userId).asFlow<UserEntity>().map { it.firstOrNull() }
+        return db.collection("users").document(userId).asDocumentFlow<UserEntity>()
     }
 
     override suspend fun getUserById(userId: String): UserEntity? {

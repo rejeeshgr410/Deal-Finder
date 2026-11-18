@@ -18,8 +18,11 @@ export default function Promotions() {
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [newPromo, setNewPromo] = useState({
-    title: '', code: '', description: '', discountInfo: '', validFrom: '', validTo: '', type: 'coupon', status: 'published'
+    title: '', code: '', description: '', discountInfo: '', validFrom: '', validTo: '',
+    type: 'coupon', status: 'published', storeName: '', domain: '', category: 'Shopping',
+    isGlobal: false, isFeatured: false, retailerId: ''
   });
+  const [seeding, setSeeding] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
@@ -50,20 +53,33 @@ export default function Promotions() {
   }, [searchQuery]);
 
   const resetForm = () => {
-    setNewPromo({ title: '', code: '', description: '', discountInfo: '', validFrom: '', validTo: '', type: 'coupon', status: 'published' });
+    setNewPromo({
+      title: '', code: '', description: '', discountInfo: '', validFrom: '', validTo: '',
+      type: 'coupon', status: 'published', storeName: '', domain: '', category: 'Shopping',
+      isGlobal: isAdminUser, isFeatured: false, retailerId: ''
+    });
     setEditingId(null);
   };
 
   const handleEditClick = (promo: any) => {
+    const expiryDate = typeof promo.validTo === 'number' && promo.validTo > 0
+      ? new Date(promo.validTo).toISOString().split('T')[0]
+      : (typeof promo.validTo === 'string' ? promo.validTo : '');
     setNewPromo({
       title: promo.title || '',
       code: promo.code || '',
       description: promo.description || '',
       discountInfo: promo.discountInfo || promo.discount || '',
       validFrom: promo.validFrom || '',
-      validTo: promo.validTo || promo.expiry || '',
+      validTo: expiryDate,
       type: promo.type || 'coupon',
-      status: promo.status || 'published'
+      status: promo.status || 'published',
+      storeName: promo.storeName || '',
+      domain: promo.domain || '',
+      category: promo.category || 'Shopping',
+      isGlobal: Boolean(promo.isGlobal),
+      isFeatured: Boolean(promo.isFeatured),
+      retailerId: promo.retailerId || ''
     });
     setEditingId(promo.id);
     setIsEditing(true);
@@ -73,16 +89,27 @@ export default function Promotions() {
     e.preventDefault();
     try {
       const isCoupon = newPromo.type === 'coupon';
+      const isGlobalCoupon = isAdminUser && isCoupon && newPromo.isGlobal;
+      const now = Date.now();
+      const parsedExpiry = newPromo.validTo ? (Date.parse(newPromo.validTo) || 0) : 0;
       const payload: any = {
-        retailerId: isRetailerUser ? user.retailerId : newPromo.retailerId || '',
-        title: newPromo.title,
+        retailerId: isGlobalCoupon ? '' : (isRetailerUser ? (user?.retailerId || '') : (newPromo.retailerId || '')),
+        title: newPromo.title || newPromo.storeName,
         discountInfo: newPromo.discountInfo,
         status: newPromo.status
       };
       
       if (isCoupon) {
-        payload.code = newPromo.code;
-        payload.expiry = newPromo.validTo;
+        payload.code = newPromo.code.trim();
+        payload.expiry = parsedExpiry;
+        payload.isGlobal = isGlobalCoupon;
+        if (isGlobalCoupon) {
+          payload.storeName = newPromo.storeName || newPromo.title;
+          payload.domain = newPromo.domain.trim().toLowerCase();
+          payload.category = newPromo.category || 'Shopping';
+          payload.description = newPromo.description;
+          payload.isFeatured = Boolean(newPromo.isFeatured);
+        }
       } else {
         payload.description = newPromo.description;
         payload.validFrom = newPromo.validFrom;
@@ -90,14 +117,14 @@ export default function Promotions() {
       }
 
       if (isEditing && editingId) {
-        payload.updatedAt = new Date().toISOString();
+        payload.updatedAt = isCoupon ? now : new Date().toISOString();
         if (isCoupon) await updateCoupon(editingId, payload);
         else await updatePromo(editingId, payload);
         showToast('Promotion updated successfully', 'success');
       } else {
         payload.usageCount = 0;
-        payload.createdAt = new Date().toISOString();
-        payload.updatedAt = new Date().toISOString();
+        payload.createdAt = isCoupon ? now : new Date().toISOString();
+        payload.updatedAt = isCoupon ? now : new Date().toISOString();
         if (isCoupon) await addCoupon(payload);
         else await addPromo(payload);
         showToast('Promotion added successfully', 'success');
@@ -107,6 +134,75 @@ export default function Promotions() {
       resetForm();
     } catch (e) {
       showToast('Failed to save promotion', 'error');
+    }
+  };
+
+  const handleSeedUaeCoupons = async () => {
+    if (!isAdminUser || seeding) return;
+    setSeeding(true);
+    const topUaeCoupons = [
+      { storeName: 'Noon UAE', domain: 'noon.com', discountInfo: '10% OFF', code: 'ALC44', category: 'Shopping', description: 'Cashback & sitewide', isFeatured: true },
+      { storeName: 'Amazon.ae', domain: 'amazon.ae', discountInfo: '15% OFF', code: 'CLIP15', category: 'Shopping', description: 'UAE Prime & bank deals', isFeatured: true },
+      { storeName: 'Namshi UAE', domain: 'namshi.com', discountInfo: '20% OFF', code: 'ACP57', category: 'Fashion', description: 'Apparel & footwear' },
+      { storeName: 'SHEIN UAE', domain: 'shein.com', discountInfo: '15% OFF', code: 'SHEIN15', category: 'Fashion', description: 'Extra off sitewide' },
+      { storeName: 'Temu UAE', domain: 'temu.com', discountInfo: '30% OFF', code: 'TEM13', category: 'Shopping', description: 'Sitewide & bundles' },
+      { storeName: 'Trendyol UAE', domain: 'trendyol.com', discountInfo: '15% OFF', code: 'WELCOME15', category: 'Fashion', description: 'Turkish fashion & home' },
+      { storeName: 'Ounass UAE', domain: 'ounass.ae', discountInfo: '10% OFF', code: 'APP10', category: 'Fashion', description: 'Luxury designer edits' },
+      { storeName: 'SIVVI UAE', domain: 'sivvi.com', discountInfo: '30% OFF', code: 'SGG200', category: 'Fashion', description: 'Extra off sale & new' },
+      { storeName: '6thStreet UAE', domain: '6thstreet.com', discountInfo: '16% OFF', code: 'AR79', category: 'Fashion', description: 'Footwear & lifestyle' },
+      { storeName: 'VogaCloset UAE', domain: 'vogacloset.com', discountInfo: '40% OFF', code: 'NEG', category: 'Fashion', description: 'UK & EU fashion' },
+      { storeName: "Bloomingdale's", domain: 'bloomingdales.ae', discountInfo: '20% OFF', code: 'C25', category: 'Fashion', description: 'Luxury fashion & beauty' },
+      { storeName: 'Farfetch UAE', domain: 'farfetch.com', discountInfo: '15% OFF', code: 'FF15', category: 'Fashion', description: 'Designer collections' },
+      { storeName: 'Level Shoes', domain: 'levelshoes.com', discountInfo: '10% OFF', code: 'AAD44', category: 'Fashion', description: 'Luxury shoes & bags' },
+      { storeName: 'Sephora UAE', domain: 'sephora.ae', discountInfo: '7% OFF', code: 'ALC5', category: 'Beauty', description: 'Makeup & skincare' },
+      { storeName: 'Bath & Body Works', domain: 'bathandbodyworks.ae', discountInfo: '10% OFF', code: 'PF74', category: 'Beauty', description: 'Candles & body care' },
+      { storeName: 'Faces UAE', domain: 'faces.ae', discountInfo: '15% OFF', code: 'CW78', category: 'Beauty', description: 'Fragrances & beauty' },
+      { storeName: "Victoria's Secret", domain: 'victoriassecret.ae', discountInfo: '15% OFF', code: 'PFXA', category: 'Beauty', description: 'Mists & sleepwear' },
+      { storeName: 'Centrepoint', domain: 'centrepointstores.com', discountInfo: '15% OFF', code: 'CPALC', category: 'Fashion', description: 'Fashion, baby & beauty' },
+      { storeName: 'Max Fashion UAE', domain: 'maxfashion.com', discountInfo: '10% OFF', code: 'YD6', category: 'Fashion', description: 'Family value fashion' },
+      { storeName: 'Splash UAE', domain: 'splashfashions.com', discountInfo: '20% OFF', code: 'EPA', category: 'Fashion', description: 'Trendy apparel' },
+      { storeName: 'Home Centre', domain: 'homecentre.com', discountInfo: '10% OFF', code: 'HCMISSU10', category: 'Home', description: 'Furniture & decor' },
+      { storeName: 'Home Box UAE', domain: 'homeboxstores.com', discountInfo: '15% OFF', code: 'HO15', category: 'Home', description: 'Modern homeware' },
+      { storeName: 'H&M UAE', domain: 'ae.hm.com', discountInfo: '10% OFF', code: 'PF347', category: 'Fashion', description: 'Apparel & basics' },
+      { storeName: 'Adidas UAE', domain: 'adidas.ae', discountInfo: '15% OFF', code: 'RAN15', category: 'Sports', description: 'Sneakers & sportswear' },
+      { storeName: 'Puma UAE', domain: 'ae.puma.com', discountInfo: '15% OFF', code: 'P16', category: 'Sports', description: 'Running & training' },
+      { storeName: 'Sun & Sand Sports', domain: 'sssports.com', discountInfo: '20% OFF', code: 'ALC10', category: 'Sports', description: 'Sports gear & shoes' },
+      { storeName: 'Foot Locker UAE', domain: 'footlocker.ae', discountInfo: '10% OFF', code: 'A14M', category: 'Sports', description: 'Sneakers & streetwear' },
+      { storeName: 'Mumzworld UAE', domain: 'mumzworld.com', discountInfo: '17% OFF', code: 'ACP', category: 'Kids', description: 'Mother, baby & toys' },
+      { storeName: 'FirstCry UAE', domain: 'firstcry.ae', discountInfo: '10% OFF', code: 'FA42', category: 'Kids', description: 'Kids apparel & gear' },
+      { storeName: 'iHerb UAE', domain: 'iherb.com', discountInfo: '20% OFF', code: 'LNI1840', category: 'Health', description: 'Vitamins & wellness' }
+    ];
+    try {
+      const existingDomains = new Set(coupons.map((c: any) => (c.domain || '').toLowerCase()));
+      let addedCount = 0;
+      const now = Date.now();
+      for (const item of topUaeCoupons) {
+        if (!existingDomains.has(item.domain.toLowerCase())) {
+          await addCoupon({
+            retailerId: '',
+            title: item.storeName,
+            storeName: item.storeName,
+            domain: item.domain,
+            discountInfo: item.discountInfo,
+            code: item.code,
+            category: item.category,
+            description: item.description,
+            isGlobal: true,
+            isFeatured: Boolean(item.isFeatured),
+            status: 'published',
+            expiry: 0,
+            usageCount: 0,
+            createdAt: now,
+            updatedAt: now
+          });
+          addedCount++;
+        }
+      }
+      showToast(addedCount > 0 ? `Synced ${addedCount} UAE store coupons` : 'All 30 UAE coupons already synced', 'success');
+    } catch {
+      showToast('Failed to sync UAE coupons (Admin role required)', 'error');
+    } finally {
+      setSeeding(false);
     }
   };
 
@@ -156,10 +252,22 @@ export default function Promotions() {
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Promotions & Coupons</h1>
           <p className="text-slate-500 mt-1 text-sm">Manage discount codes and special offers.</p>
         </div>
-        <button onClick={() => setIsAdding(true)} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-semibold text-sm">
-          <Plus className="w-4 h-4" />
-          Create Promotion
-        </button>
+        <div className="flex items-center gap-2">
+          {isAdminUser && (
+            <button
+              onClick={handleSeedUaeCoupons}
+              disabled={seeding}
+              className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl hover:bg-amber-100 transition-colors font-semibold text-sm disabled:opacity-50"
+            >
+              <Tag className="w-4 h-4" />
+              {seeding ? 'Syncing...' : 'Sync 30 UAE Coupons'}
+            </button>
+          )}
+          <button onClick={() => { resetForm(); setIsAdding(true); }} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-semibold text-sm">
+            <Plus className="w-4 h-4" />
+            Create Promotion
+          </button>
+        </div>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden flex-1 flex flex-col">
@@ -284,6 +392,54 @@ export default function Promotions() {
             <label className="block text-sm font-semibold text-slate-900 mb-1">Title</label>
             <input type="text" required value={newPromo.title} onChange={e => setNewPromo({...newPromo, title: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl" />
           </div>
+          {isAdminUser && newPromo.type === 'coupon' && (
+            <div className="p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl space-y-3">
+              <label className="flex items-center gap-2 text-sm font-semibold text-indigo-950 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={newPromo.isGlobal}
+                  onChange={e => setNewPromo({ ...newPromo, isGlobal: e.target.checked })}
+                  className="rounded border-slate-300 text-indigo-600"
+                />
+                Platform UAE Store Coupon (Admin Only)
+              </label>
+              {newPromo.isGlobal && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Store Name</label>
+                    <input type="text" placeholder="e.g. Noon UAE" value={newPromo.storeName} onChange={e => setNewPromo({ ...newPromo, storeName: e.target.value })} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Store Domain</label>
+                    <input type="text" placeholder="e.g. noon.com" value={newPromo.domain} onChange={e => setNewPromo({ ...newPromo, domain: e.target.value })} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Category</label>
+                    <select value={newPromo.category} onChange={e => setNewPromo({ ...newPromo, category: e.target.value })} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white">
+                      <option value="Shopping">Shopping</option>
+                      <option value="Fashion">Fashion</option>
+                      <option value="Beauty">Beauty</option>
+                      <option value="Home">Home</option>
+                      <option value="Sports">Sports</option>
+                      <option value="Kids">Kids</option>
+                      <option value="Health">Health</option>
+                      <option value="Food & Grocery">Food &amp; Grocery</option>
+                    </select>
+                  </div>
+                  <div className="flex items-end pb-1.5">
+                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                      <input type="checkbox" checked={newPromo.isFeatured} onChange={e => setNewPromo({ ...newPromo, isFeatured: e.target.checked })} className="rounded border-slate-300 text-indigo-600" />
+                      Featured Full-Width Bento
+                    </label>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Short Offer Subtitle</label>
+                    <input type="text" placeholder="e.g. Cashback & sitewide" value={newPromo.description} onChange={e => setNewPromo({ ...newPromo, description: e.target.value })} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white" />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-slate-900 mb-1">Promo Code</label>

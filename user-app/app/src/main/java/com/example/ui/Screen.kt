@@ -3,6 +3,8 @@ package com.example.ui
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.outlined.List
+import androidx.compose.material.icons.filled.ConfirmationNumber
+import androidx.compose.material.icons.outlined.ConfirmationNumber
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.filled.LocalOffer
@@ -29,7 +31,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector,
     object Lists : Screen("lists", "Lists", Icons.AutoMirrored.Outlined.List, Icons.AutoMirrored.Filled.List)
     object Deals : Screen("deals", "Deals", Icons.Outlined.LocalOffer, Icons.Filled.LocalOffer)
     object Account : Screen("account", "Account", Icons.Outlined.Person, Icons.Filled.Person)
-    object Coupons : Screen("coupons", "Coupons", Icons.Outlined.LocalOffer, Icons.Filled.LocalOffer)
+    object Coupons : Screen("coupons", "Coupons", Icons.Outlined.ConfirmationNumber, Icons.Filled.ConfirmationNumber)
     object Notifications : Screen("notifications", "Notifications", Icons.Outlined.Notifications, Icons.Filled.Notifications)
     object Location : Screen("location", "Location", Icons.Outlined.LocationOn, Icons.Filled.LocationOn)
     object Auth : Screen("auth", "Authentication", Icons.Outlined.Person, Icons.Filled.Person)
