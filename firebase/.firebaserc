@@ -1,6 +1,6 @@
 {
   "projects": {
-    "default": "demo-dealfinder-staging",
-    "staging": "demo-dealfinder-staging"
+    "default": "deal-finder-uae",
+    "staging": "deal-finder-uae"
   }
 }
