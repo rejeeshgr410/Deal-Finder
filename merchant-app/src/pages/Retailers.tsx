@@ -42,10 +42,12 @@ export default function Retailers() {
   const handleAddRetailer = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const now = Date.now();
       await add({ 
         ...newRetailer,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        emirates: Array.isArray(newRetailer.emirates) ? newRetailer.emirates.join(', ') : String(newRetailer.emirates || ''),
+        createdAt: now,
+        updatedAt: now
       });
       setIsAdding(false);
       setNewRetailer({ name: '', logoUrl: '', email: '', branchesCount: 0, status: 'published', emirates: [] });

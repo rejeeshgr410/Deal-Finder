@@ -1,6 +1,6 @@
 {
   "projects": {
-    "default": "deal-finder-uae",
-    "staging": "deal-finder-uae"
+    "default": "gen-lang-client-0615495350",
+    "staging": "gen-lang-client-0615495350"
   }
 }

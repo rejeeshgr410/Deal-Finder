@@ -36,6 +36,7 @@ fun RetailerScreen(
     onNavigateToProduct: (String) -> Unit
 ) {
     val isLoaded by viewModel.isLoaded.collectAsState()
+    val branches by viewModel.branches.collectAsState()
     val store = viewModel.getStore(retailerId)
 
     if (!isLoaded) {
@@ -165,7 +166,7 @@ fun RetailerScreen(
                 }
             }
 
-            val storeBranches = viewModel.getBranchesForStoreInEmirate(store.id)
+            val storeBranches = branches.let { viewModel.getBranchesForStoreInEmirate(store.id) }
             if (storeBranches.isNotEmpty()) {
                 item {
                     SectionHeader(title = "Branches", action = "", onAction = {})
@@ -249,10 +250,13 @@ fun RetailerScreen(
                 }
             } else {
                 items(storeProducts) { product ->
+                    val (nearestBranch, distanceKm) = branches.let { viewModel.getNearestBranchAndDistance(store.id) }
                     SearchResultItem(
                         product = product,
                         store = store,
                         isCheapest = true,
+                        distanceKm = distanceKm,
+                        nearestBranchName = nearestBranch?.name,
                         onClick = { onNavigateToProduct(product.id) },
                         onAddToList = {}
                     )

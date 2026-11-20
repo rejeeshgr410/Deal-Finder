@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Filter, MoreVertical, FileText, CheckCircle, Clock, ScanLine, Trash2, Search, Upload } from 'lucide-react';
 import { useCollection } from '../lib/firebase-hooks';
 import { Modal } from '../components/Modal';
@@ -32,6 +33,7 @@ const StatusBadge = ({ status }: { status: string }) => {
 };
 
 export default function Flyers() {
+  const navigate = useNavigate();
   const { user, isAdminUser, isRetailerUser } = useAuth();
   const { showToast } = useToast();
   const filterKey = `${user.role || ''}:${user.retailerId || ''}`;
@@ -59,10 +61,32 @@ export default function Flyers() {
   const [reviewStatus, setReviewStatus] = useState<'approved' | 'rejected'>('approved');
   const [reviewComments, setReviewComments] = useState('');
 
+  const parseTimestamp = (val: unknown): number | null => {
+    if (typeof val === 'number' && Number.isFinite(val) && val > 0) return val;
+    if (typeof val === 'string' && val.trim()) {
+      const num = Number(val);
+      if (Number.isFinite(num) && num > 0) return num;
+      const parsed = Date.parse(val);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+    return null;
+  };
+
+  const formatDateValue = (val: unknown): string => {
+    const ts = parseTimestamp(val);
+    if (ts === null) return '-';
+    return new Date(ts).toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
   const flyers = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
+    const nowMs = Date.now();
     const processed = allFlyers.map((f: any) => {
-      if (f.validTo && f.validTo < today && f.status === 'published') {
+      const validToTs = parseTimestamp(f.validTo);
+      if (validToTs !== null && validToTs < nowMs && f.status === 'published') {
         return { ...f, status: 'expired' };
       }
       return f;
@@ -154,22 +178,27 @@ export default function Flyers() {
           try {
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
             const isPdf = selectedFile.type === 'application/pdf';
+            const now = Date.now();
+            const validFromMs = newFlyer.validFrom ? (Date.parse(newFlyer.validFrom) || now) : now;
+            const validToMs = newFlyer.validTo ? (Date.parse(newFlyer.validTo) || (now + 14 * 86400000)) : (now + 14 * 86400000);
             
             await add({ 
               ...newFlyer, 
               retailerId: isRetailerUser ? user.retailerId : selectedRetailer,
               status: 'processing',
+              validFrom: validFromMs,
+              validTo: validToMs,
               [isPdf ? 'pdfUrl' : 'imageUrl']: downloadURL,
               pages: 1,
               views: 0,
               clicks: 0,
               createdBy: user.email,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
+              createdAt: now,
+              updatedAt: now,
               auditLog: [{
                 status: 'processing',
                 user: user.email,
-                timestamp: new Date().toISOString(),
+                timestamp: new Date(now).toISOString(),
                 action: 'Uploaded'
               }]
             });
@@ -339,8 +368,8 @@ export default function Flyers() {
                     </td>
                     <td className="py-4 px-6 text-sm text-slate-600 font-medium">{getRetailerName(flyer.retailerId) || 'Unknown'}</td>
                     <td className="py-4 px-6"><StatusBadge status={flyer.status} /></td>
-                    <td className="py-4 px-6 text-sm text-slate-600">{flyer.uploadDate ? new Date(flyer.uploadDate).toLocaleDateString() : '-'}</td>
-                    <td className="py-4 px-6 text-sm text-slate-600">{flyer.validFrom && flyer.validTo ? `${flyer.validFrom} to ${flyer.validTo}` : (flyer.date || flyer.validFrom || '-')}</td>
+                    <td className="py-4 px-6 text-sm text-slate-600">{formatDateValue(flyer.createdAt || flyer.uploadDate)}</td>
+                    <td className="py-4 px-6 text-sm text-slate-600">{flyer.validFrom && flyer.validTo ? `${formatDateValue(flyer.validFrom)} – ${formatDateValue(flyer.validTo)}` : (flyer.date || formatDateValue(flyer.validFrom || flyer.validTo))}</td>
                     <td className="py-4 px-6 text-sm text-slate-600 font-bold">{flyer.views || 0}</td>
                     <td className="py-4 px-6 text-sm text-slate-600 font-bold">{flyer.clicks || 0}</td>
                     <td className="py-4 px-6 text-right">
@@ -350,7 +379,14 @@ export default function Flyers() {
                             <CheckCircle className="w-4 h-4" />
                           </button>
                         )}
-                        <button className="text-slate-400 hover:text-slate-900 p-1.5 rounded-lg hover:bg-slate-100 transition-colors" title="Manage">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/ocr/${flyer.id}`);
+                          }}
+                          className="text-slate-400 hover:text-slate-900 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                          title="Manage"
+                        >
                           <MoreVertical className="w-5 h-5" />
                         </button>
                         <button onClick={() => handleDelete(flyer.id, flyer.title)} className="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="Delete">

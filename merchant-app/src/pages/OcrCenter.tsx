@@ -62,14 +62,21 @@ export default function OcrCenter() {
       const snapshot = await uploadBytes(storageRef, file);
       fileUrl = await getDownloadURL(snapshot.ref);
 
-      // Generate cover thumbnail
+      // Generate cover thumbnail and upload to Storage (avoid huge base64 strings inside Firestore)
       let pageCount = 1;
       if (isPdf) {
         setUploadStatus('Rendering PDF cover preview...');
         const { canvases, totalPages } = await renderPdfToCanvases(file, 1, 1.2);
         pageCount = totalPages || 1;
         if (canvases.length > 0) {
-          coverImageUrl = canvases[0].toDataURL('image/jpeg', 0.8);
+          const coverBlob = await new Promise<Blob | null>((resolve) =>
+            canvases[0].toBlob((b) => resolve(b), 'image/jpeg', 0.85)
+          );
+          if (coverBlob) {
+            const coverRef = ref(storage, `flyers/${effectiveRetailerId}/cover_${Date.now()}.jpg`);
+            const coverSnap = await uploadBytes(coverRef, coverBlob, { contentType: 'image/jpeg' });
+            coverImageUrl = await getDownloadURL(coverSnap.ref);
+          }
         }
       } else {
         coverImageUrl = fileUrl;

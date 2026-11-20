@@ -4,7 +4,10 @@ import {
   clampBox2d,
   sanitizeExtractionItem,
   canAccessRetailerExtraction,
-  GeminiExtractionOutputSchema
+  GeminiExtractionOutputSchema,
+  resolveGenAiClientOptions,
+  DEFAULT_VERTEX_PROJECT,
+  DEFAULT_VERTEX_LOCATION
 } from '../gemini';
 import { sanitizeAnalyticsDetails, TrackAnalyticsInputSchema } from '../analytics';
 
@@ -66,6 +69,50 @@ describe('Gemini flyer extraction validation & sanitization', () => {
     expect(canAccessRetailerExtraction('retailer_owner', 'retailer-a', 'retailer-b')).toBe(false);
     expect(canAccessRetailerExtraction('consumer', null, 'retailer-a')).toBe(false);
     expect(canAccessRetailerExtraction('moderator', null, 'retailer-b')).toBe(true);
+  });
+
+  it('defaults to Vertex AI options on gen-lang-client-0615495350 and falls back to API key only when disabled', () => {
+    expect(
+      resolveGenAiClientOptions(
+        { GCLOUD_PROJECT: 'deal-finder-uae', GOOGLE_CLOUD_LOCATION: 'us-central1' } as unknown as NodeJS.ProcessEnv,
+        'unused-secret'
+      )
+    ).toEqual({
+      vertexai: true,
+      project: 'gen-lang-client-0615495350',
+      location: DEFAULT_VERTEX_LOCATION
+    });
+
+    expect(resolveGenAiClientOptions({} as NodeJS.ProcessEnv, 'unused-secret')).toEqual({
+      vertexai: true,
+      project: DEFAULT_VERTEX_PROJECT,
+      location: DEFAULT_VERTEX_LOCATION
+    });
+
+    expect(
+      resolveGenAiClientOptions(
+        {
+          VERTEX_AI_PROJECT: 'custom-proj',
+          VERTEX_AI_LOCATION: 'global'
+        } as unknown as NodeJS.ProcessEnv,
+        ''
+      )
+    ).toEqual({
+      vertexai: true,
+      project: 'custom-proj',
+      location: 'global'
+    });
+
+    expect(
+      resolveGenAiClientOptions(
+        { USE_VERTEX_AI: 'false' } as unknown as NodeJS.ProcessEnv,
+        'secret-key-123'
+      )
+    ).toEqual({ apiKey: 'secret-key-123' });
+
+    expect(() =>
+      resolveGenAiClientOptions({ USE_VERTEX_AI: 'false' } as unknown as NodeJS.ProcessEnv, '')
+    ).toThrow();
   });
 });
 

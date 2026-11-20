@@ -225,7 +225,7 @@ class DealFinderViewModel(
     }
 
     val branches: StateFlow<List<com.example.data.BranchEntity>> =
-        repository.allBranches.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        repository.allBranches.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     fun getStore(id: String): RetailerEntity? {
         return stores.value.find { it.id == id }

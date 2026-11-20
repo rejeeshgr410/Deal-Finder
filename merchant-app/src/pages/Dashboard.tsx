@@ -42,12 +42,14 @@ export default function Dashboard() {
   const [endDate, setEndDate] = useState('');
 
   // Admin Data
-  const activeRetailersCount = retailers.filter((r: any) => r.status === 'published' || r.status === 'Active').length;
-  const pendingFlyers = allFlyers.filter((f: any) => ['processing', 'pending', 'pending_review', 'pending_admin_review', 'draft', 'ocr_review', 'review_required'].includes(f.status));
+  const nonArchivedRetailers = retailers.filter((r: any) => r.status !== 'archived');
+  const nonArchivedFlyers = allFlyers.filter((f: any) => f.status !== 'archived');
+  const activeRetailersCount = nonArchivedRetailers.filter((r: any) => r.status === 'published' || r.status === 'Active').length;
+  const pendingFlyers = nonArchivedFlyers.filter((f: any) => ['processing', 'pending', 'pending_review', 'pending_admin_review', 'draft', 'ocr_review', 'review_required'].includes(f.status));
   const pendingOcrCount = pendingFlyers.length;
 
   // Retailer Data
-  const retailerFlyers = isRetailerUser ? allFlyers.filter((f: any) => f.retailerId === user.retailerId) : [];
+  const retailerFlyers = isRetailerUser ? nonArchivedFlyers.filter((f: any) => f.retailerId === user.retailerId) : [];
   const retailerProducts = isRetailerUser ? allProducts.filter((p: any) => p.retailerId === user.retailerId) : [];
   const retailerPromotions = isRetailerUser ? allPromotions.filter((p: any) => p.retailerId === user.retailerId) : [];
 
@@ -81,9 +83,9 @@ export default function Dashboard() {
   }, [verifiedEvents]);
 
   const adminStats = [
-    { label: 'Total Retailers', value: loadingRetailers ? '-' : retailers.length.toString(), trend: 'Live', isPositive: true },
+    { label: 'Total Retailers', value: loadingRetailers ? '-' : nonArchivedRetailers.length.toString(), trend: 'Live', isPositive: true },
     { label: 'Published Retailers', value: loadingRetailers ? '-' : activeRetailersCount.toString(), trend: 'Live', isPositive: true },
-    { label: 'Total Flyers', value: loadingFlyers ? '-' : allFlyers.length.toString(), trend: 'Live', isPositive: true },
+    { label: 'Total Flyers', value: loadingFlyers ? '-' : nonArchivedFlyers.length.toString(), trend: 'Live', isPositive: true },
     { label: 'Pending Review', value: loadingFlyers ? '-' : pendingOcrCount.toString(), trend: 'Live', isPositive: pendingOcrCount === 0 },
   ];
 
@@ -95,14 +97,42 @@ export default function Dashboard() {
   ];
 
   const stats = isAdminUser ? adminStats : retailerStats;
-  const displayFlyers = isAdminUser ? allFlyers : retailerFlyers;
+  const displayFlyers = [...(isAdminUser ? nonArchivedFlyers : retailerFlyers)].sort(
+    (a: any, b: any) => Number(b.createdAt || b.updatedAt || b.validFrom || 0) - Number(a.createdAt || a.updatedAt || a.validFrom || 0)
+  );
 
-  const isDateInRange = (dateStr: string) => {
-    if (!dateStr) return true;
+  const getRetailerName = (retailerId?: string) => {
+    if (!retailerId) return 'Generic Retailer';
+    const match = retailers.find((r: any) => r.id === retailerId);
+    return match?.name || retailerId;
+  };
+
+  const formatDateShort = (raw: unknown, withYear = false) => {
+    if (raw === null || raw === undefined || raw === '') return '';
+    const d = typeof raw === 'number' ? new Date(raw) : new Date(String(raw));
+    if (isNaN(d.getTime())) return String(raw);
+    return d.toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      ...(withYear ? { year: 'numeric' } : {})
+    });
+  };
+
+  const formatFlyerValidity = (flyer: any) => {
+    if (flyer.validFrom && flyer.validTo) {
+      return `${formatDateShort(flyer.validFrom)} – ${formatDateShort(flyer.validTo, true)}`;
+    }
+    if (flyer.validTo) return `Until ${formatDateShort(flyer.validTo, true)}`;
+    if (flyer.validFrom) return `From ${formatDateShort(flyer.validFrom, true)}`;
+    return flyer.date || '-';
+  };
+
+  const isDateInRange = (rawDate: unknown) => {
+    if (rawDate === null || rawDate === undefined || rawDate === '') return true;
     if (!startDate && !endDate) return true;
-    let d = new Date(dateStr);
+    let d = typeof rawDate === 'number' ? new Date(rawDate) : new Date(String(rawDate));
     if (isNaN(d.getTime())) {
-      const match = dateStr.match(/\d{4}-\d{2}-\d{2}/);
+      const match = String(rawDate).match(/\d{4}-\d{2}-\d{2}/);
       if (match) d = new Date(match[0]);
       else return true;
     }
@@ -127,9 +157,9 @@ export default function Dashboard() {
         csvContent += `${row.name},${row.views},${row.clicks}\n`;
       });
       csvContent += "\nMy Flyers Overview\n";
-      csvContent += "Title,Status,Date\n";
-      retailerFlyers.filter((f: any) => isDateInRange(f.uploadDate || f.validFrom)).forEach((f: any) => {
-        csvContent += `"${f.title}","${f.status}","${f.date || f.validFrom || '-'}"\n`;
+      csvContent += "Title,Status,Validity\n";
+      retailerFlyers.filter((f: any) => isDateInRange(f.createdAt || f.uploadDate || f.validFrom)).forEach((f: any) => {
+        csvContent += `"${f.title}","${f.status}","${formatFlyerValidity(f)}"\n`;
       });
     } else {
       csvContent += "Admin Overview\n";
@@ -141,12 +171,12 @@ export default function Dashboard() {
       csvContent += "\nAll Retailers\n";
       csvContent += "Name,Status,Branches\n";
       retailers.forEach((r: any) => {
-        csvContent += `"${r.name || ''}","${r.status || ''}","${r.branches || 0}"\n`;
+        csvContent += `"${r.name || ''}","${r.status || ''}","${r.branchesCount ?? r.branches ?? 0}"\n`;
       });
       csvContent += "\nPending Review Flyers\n";
       csvContent += "Title,Retailer,Status\n";
-      pendingFlyers.filter((f: any) => isDateInRange(f.uploadDate || f.validFrom)).forEach((f: any) => {
-        csvContent += `"${f.title || ''}","${f.retailerId || ''}","${f.status || ''}"\n`;
+      pendingFlyers.filter((f: any) => isDateInRange(f.createdAt || f.uploadDate || f.validFrom)).forEach((f: any) => {
+        csvContent += `"${f.title || ''}","${getRetailerName(f.retailerId)}","${f.status || ''}"\n`;
       });
     }
 
@@ -167,23 +197,29 @@ export default function Dashboard() {
           <div className="px-2 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded uppercase tracking-wide">Real-time Active</div>
         </div>
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
-          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200">
-            <Calendar className="w-4 h-4 text-slate-400" />
-            <input 
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="text-xs sm:text-sm text-slate-600 bg-transparent outline-none cursor-pointer"
-              title="Start Date"
-            />
+          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 flex-wrap">
+            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+            <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+              <span>From</span>
+              <input 
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="text-xs sm:text-sm text-slate-700 bg-transparent outline-none cursor-pointer"
+                title="Start Date"
+              />
+            </label>
             <span className="text-slate-300">-</span>
-            <input 
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="text-xs sm:text-sm text-slate-600 bg-transparent outline-none cursor-pointer"
-              title="End Date"
-            />
+            <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+              <span>To</span>
+              <input 
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="text-xs sm:text-sm text-slate-700 bg-transparent outline-none cursor-pointer"
+                title="End Date"
+              />
+            </label>
           </div>
           <button 
             onClick={handleExportCSV}
@@ -228,14 +264,14 @@ export default function Dashboard() {
                   </div>
                   <div className="flex-1 min-w-0 sm:hidden">
                     <p className="text-sm font-semibold text-slate-900 truncate">{flyer.title}</p>
-                    <p className="text-[11px] text-slate-500 truncate">{flyer.retailerId || 'Generic Retailer'} • Validity: {flyer.date}</p>
+                    <p className="text-[11px] text-slate-500 truncate">{getRetailerName(flyer.retailerId)} • Validity: {formatFlyerValidity(flyer)}</p>
                   </div>
                 </div>
                 <div className="hidden sm:block flex-1 min-w-0 md:min-w-[200px]">
                   <p className="text-sm font-semibold text-slate-900 truncate">{flyer.title}</p>
-                  <p className="text-[11px] text-slate-500 truncate">{isAdminUser ? (flyer.retailerId || 'Generic Retailer') : `Validity: ${flyer.date}`}</p>
+                  <p className="text-[11px] text-slate-500 truncate">{isAdminUser ? `${getRetailerName(flyer.retailerId)} • Validity: ${formatFlyerValidity(flyer)}` : `Validity: ${formatFlyerValidity(flyer)}`}</p>
                 </div>
-                <div className="flex items-center gap-3 shrink-0 justify-between sm:justify-end w-full sm:w-auto ml-12 sm:ml-0">
+                <div className="flex items-center gap-3 shrink-0 justify-between sm:justify-end w-full sm:w-auto pl-12 sm:pl-0">
                   <span className={`px-2 py-1 text-[10px] rounded-md font-bold uppercase tracking-wide inline-block ${
                     flyer.status === 'live' || flyer.status === 'published' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
                   }`}>

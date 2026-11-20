@@ -45,6 +45,7 @@ fun ProductDetailScreen(
 ) {
     val isLoaded by viewModel.isLoaded.collectAsState()
     val products by viewModel.products.collectAsState()
+    val branches by viewModel.branches.collectAsState()
     val savedDeals by viewModel.savedDeals.collectAsState()
     val product = products.find { it.id == productId }
     val store = product?.let { viewModel.getStore(it.retailerId) }
@@ -316,7 +317,7 @@ fun ProductDetailScreen(
                     }
                 }
 
-                val (nearestBranch, nearestDistanceKm) = viewModel.getNearestBranchAndDistance(store.id)
+                val (nearestBranch, nearestDistanceKm) = branches.let { viewModel.getNearestBranchAndDistance(store.id) }
                 val detailContext = androidx.compose.ui.platform.LocalContext.current
                 if (nearestBranch != null && nearestBranch.isEligibleForDistance()) {
                     Spacer(modifier = Modifier.height(10.dp))

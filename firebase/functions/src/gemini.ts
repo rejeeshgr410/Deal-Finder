@@ -1,15 +1,39 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { defineSecret } from 'firebase-functions/params';
 import { GoogleGenAI, Type } from '@google/genai';
 import { z } from 'zod';
 import { getNamedDb } from './config';
 
-const geminiApiKeySecret = defineSecret('GEMINI_API_KEY');
-
-export const GEMINI_MODEL_NAME = 'gemini-2.5-flash';
+export const GEMINI_MODEL_NAME = 'gemini-3.8-flash';
 export const PROMPT_TEMPLATE_REVISION = 'flyer-v2-2026-11-18';
 export const MAX_IMAGE_BASE64_BYTES = 5 * 1024 * 1024;
 export const MAX_EXTRACTIONS_PER_HOUR_PER_TENANT = 60;
+export const DEFAULT_VERTEX_PROJECT = 'gen-lang-client-0615495350';
+export const DEFAULT_VERTEX_LOCATION = 'global';
+
+/**
+ * Resolves @google/genai client options, defaulting to Vertex AI on the Default
+ * Gemini Project (gen-lang-client-0615495350) so calls bill against its GCP
+ * billing account credits unless USE_VERTEX_AI=false.
+ */
+export function resolveGenAiClientOptions(
+  env: NodeJS.ProcessEnv = process.env,
+  secretApiKey = ''
+): { vertexai: true; project: string; location: string } | { apiKey: string } {
+  if (env.USE_VERTEX_AI === 'false') {
+    const apiKey = secretApiKey || env.GEMINI_API_KEY || '';
+    if (!apiKey) {
+      throw new HttpsError('failed-precondition', 'Server-side GEMINI_API_KEY is not configured.');
+    }
+    return { apiKey };
+  }
+  const project = env.VERTEX_AI_PROJECT || DEFAULT_VERTEX_PROJECT;
+  const location = env.VERTEX_AI_LOCATION || DEFAULT_VERTEX_LOCATION;
+  return {
+    vertexai: true,
+    project,
+    location
+  };
+}
 
 export const ExtractFlyerPageInputSchema = z.object({
   retailerId: z.string().min(1).max(128),
@@ -167,7 +191,6 @@ async function checkAndIncrementRateLimit(retailerId: string): Promise<void> {
 export const extractFlyerPage = onCall(
   {
     cors: true,
-    secrets: [geminiApiKeySecret],
     timeoutSeconds: 120,
     memory: '512MiB'
   },
@@ -213,13 +236,9 @@ export const extractFlyerPage = onCall(
 
     await checkAndIncrementRateLimit(retailerId);
 
-    const apiKey = geminiApiKeySecret.value() || process.env.GEMINI_API_KEY || '';
-    if (!apiKey) {
-      throw new HttpsError('failed-precondition', 'Server-side GEMINI_API_KEY is not configured.');
-    }
-
+    const clientOptions = resolveGenAiClientOptions(process.env);
     const startedAt = Date.now();
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI(clientOptions);
 
     const systemInstruction =
       'You extract structured grocery product deals from UAE supermarket flyer images. ' +

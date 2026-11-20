@@ -341,12 +341,20 @@ fun PromotionCard(promotion: com.example.data.PromotionEntity, store: com.exampl
                 overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(12.dp))
+            val discountBadgeText = promotion.discountInfo.ifBlank {
+                if (promotion.discount > 0.0) {
+                    val pct = if (promotion.discount % 1.0 == 0.0) promotion.discount.toInt().toString() else promotion.discount.toString()
+                    "$pct% OFF"
+                } else {
+                    "SPECIAL OFFER"
+                }
+            }
             Surface(
                 color = MaterialTheme.colorScheme.primaryContainer,
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Text(
-                    text = "${promotion.discount} OFF",
+                    text = discountBadgeText,
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
@@ -584,7 +592,7 @@ fun FlyerCard(flyer: FlyerEntity, store: RetailerEntity? = null, onClick: () -> 
 
     Card(
         onClick = onClick,
-        modifier = Modifier.width(164.dp).height(218.dp),
+        modifier = Modifier.width(164.dp).height(236.dp),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = bgColor),
         border = BorderStroke(1.dp, Color(0xFFE2E8F0).copy(alpha = 0.5f)),
@@ -595,30 +603,42 @@ fun FlyerCard(flyer: FlyerEntity, store: RetailerEntity? = null, onClick: () -> 
                 shape = RoundedCornerShape(14.dp),
                 color = Color.White,
                 shadowElevation = 1.dp,
-                modifier = Modifier.fillMaxWidth().height(72.dp)
+                modifier = Modifier.fillMaxWidth().height(98.dp)
             ) {
                 AsyncImage(
-                    model = store?.logoUrl ?: "file:///android_asset/logos/default_logo.png",
+                    model = flyer.imageUrl.ifBlank { store?.logoUrl ?: "file:///android_asset/logos/default_logo.png" },
                     error = coil.compose.rememberAsyncImagePainter("file:///android_asset/logos/default_logo.png"),
-                    contentDescription = null,
-                    modifier = Modifier.padding(10.dp).fillMaxSize(),
-                    contentScale = ContentScale.Fit
+                    contentDescription = flyer.title,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    alignment = Alignment.TopCenter
                 )
             }
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+            if (store != null) {
+                Text(
+                    text = store.name,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = badgeColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
             Text(
-                store?.name ?: flyer.title, 
-                style = MaterialTheme.typography.titleSmall, 
-                fontWeight = FontWeight.Bold, 
+                text = flyer.title.ifBlank { store?.name ?: "Offer Flyer" },
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 color = Slate900
             )
             Spacer(modifier = Modifier.height(2.dp))
             val sdf = java.text.SimpleDateFormat("dd MMM", java.util.Locale.getDefault())
             val formattedDate = if (flyer.validTo > 0) "Valid till ${sdf.format(java.util.Date(flyer.validTo))}" else "Valid today"
             Text(
-                formattedDate, 
-                style = MaterialTheme.typography.labelSmall, 
+                formattedDate,
+                style = MaterialTheme.typography.labelSmall,
                 color = Slate500
             )
             Spacer(modifier = Modifier.weight(1f))

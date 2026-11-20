@@ -17,6 +17,7 @@ data class UserEntity(
     val fcmToken: String = ""
 )
 
+@com.google.firebase.firestore.IgnoreExtraProperties
 data class RetailerEntity(
     val id: String = "",
     val name: String = "",
@@ -29,6 +30,7 @@ data class RetailerEntity(
     val updatedAt: Long = 0L
 )
 
+@com.google.firebase.firestore.IgnoreExtraProperties
 data class FlyerEntity(
     val id: String = "",
     val retailerId: String = "",
@@ -174,6 +176,7 @@ data class BranchEntity(
     val coordSource: String = ""
 )
 
+@com.google.firebase.firestore.IgnoreExtraProperties
 data class PromotionEntity(
     val id: String = "",
     val retailerId: String = "",
@@ -184,14 +187,17 @@ data class PromotionEntity(
     val validTo: Long = 0L,
     val status: String = "published",
     val createdAt: Long = 0L,
-    val updatedAt: Long = 0L
+    val updatedAt: Long = 0L,
+    val discountInfo: String = ""
 )
 
+@com.google.firebase.firestore.IgnoreExtraProperties
 data class SearchHistoryEntity(
     val query: String = "",
     val timestamp: Long = 0L
 )
 
+@com.google.firebase.firestore.IgnoreExtraProperties
 data class NotificationEntity(
     val id: String = "",
     val title: String = "",

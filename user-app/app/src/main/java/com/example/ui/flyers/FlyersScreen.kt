@@ -53,6 +53,7 @@ fun FlyersScreen(
 ) {
     val products by viewModel.products.collectAsState()
     val flyers by viewModel.flyers.collectAsState()
+    val branches by viewModel.branches.collectAsState()
     val selectedEmirate by viewModel.selectedEmirate.collectAsState()
     var selectedCategory by remember { mutableStateOf("All Deals") }
 
@@ -183,7 +184,7 @@ fun FlyersScreen(
                         }
                     } else {
                         dealsToShow.forEachIndexed { index, product ->
-                            val (_, distanceKm) = viewModel.getNearestBranchAndDistance(product.retailerId)
+                            val (_, distanceKm) = branches.let { viewModel.getNearestBranchAndDistance(product.retailerId) }
                             val distanceLabel = when {
                                 distanceKm == null -> "Distance unavailable"
                                 distanceKm < 1.0 -> "${(distanceKm * 1000).toInt()} m away"

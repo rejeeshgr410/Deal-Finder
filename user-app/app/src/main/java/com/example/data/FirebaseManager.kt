@@ -2,12 +2,18 @@ package com.example.data
 
 import android.content.Context
 import com.google.firebase.FirebaseApp
+import com.google.firebase.Timestamp
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
+import kotlin.reflect.KClass
 
 object FirebaseManager {
     // The shared backend uses a NAMED (non-default) Firestore database that was
@@ -61,6 +67,179 @@ data class SnapshotEnvelope<T>(
     val pageLimit: Int = 0
 )
 
+fun parseEpochMs(raw: Any?): Long {
+    return when (raw) {
+        is Number -> raw.toLong()
+        is Timestamp -> raw.toDate().time
+        is String -> {
+            val trimmed = raw.trim()
+            if (trimmed.isEmpty()) return 0L
+            trimmed.toLongOrNull()?.let { return it }
+            val patterns = listOf(
+                "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+                "yyyy-MM-dd'T'HH:mm:ss'Z'",
+                "yyyy-MM-dd'T'HH:mm:ss.SSSX",
+                "yyyy-MM-dd'T'HH:mm:ssX",
+                "yyyy-MM-dd"
+            )
+            for (pattern in patterns) {
+                try {
+                    val fmt = SimpleDateFormat(pattern, Locale.US).apply {
+                        timeZone = TimeZone.getTimeZone("UTC")
+                        isLenient = false
+                    }
+                    val parsed = fmt.parse(trimmed)
+                    if (parsed != null) return parsed.time
+                } catch (_: Exception) {
+                }
+            }
+            0L
+        }
+        else -> 0L
+    }
+}
+
+private fun parseDoubleLenient(raw: Any?): Double {
+    return when (raw) {
+        is Number -> raw.toDouble()
+        is String -> raw.trim().toDoubleOrNull()
+            ?: Regex("""(\d+(?:\.\d+)?)""").find(raw)?.groupValues?.get(1)?.toDoubleOrNull()
+            ?: 0.0
+        else -> 0.0
+    }
+}
+
+fun mapDocumentTolerantly(doc: DocumentSnapshot, clazz: KClass<*>): Any? {
+    val d = doc.data ?: return null
+    return when (clazz) {
+        ProductEntity::class -> ProductEntity(
+            id = doc.id,
+            masterProductId = d["masterProductId"] as? String ?: "",
+            retailerId = d["retailerId"] as? String ?: "",
+            flyerId = d["flyerId"] as? String ?: "",
+            name = d["name"] as? String ?: "",
+            normalizedName = d["normalizedName"] as? String ?: "",
+            searchKeywords = (d["searchKeywords"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
+            brand = d["brand"] as? String ?: "",
+            category = d["category"] as? String ?: "General",
+            barcode = d["barcode"] as? String ?: "",
+            imageUrl = d["imageUrl"] as? String ?: "",
+            currentPrice = parseDoubleLenient(d["currentPrice"]),
+            oldPrice = (d["oldPrice"] as? Number)?.toDouble(),
+            unitSize = (d["unitSize"] as? Number)?.toDouble() ?: 1.0,
+            unitType = d["unitType"] as? String ?: "unit",
+            validFrom = parseEpochMs(d["validFrom"]),
+            validTo = parseEpochMs(d["validTo"]),
+            status = d["status"] as? String ?: "published",
+            createdAt = parseEpochMs(d["createdAt"]),
+            updatedAt = parseEpochMs(d["updatedAt"]),
+            schemaVersion = (d["schemaVersion"] as? Number)?.toInt() ?: 1,
+            amountMinor = (d["amountMinor"] as? Number)?.toLong(),
+            comparisonPriceMinor = (d["comparisonPriceMinor"] as? Number)?.toLong(),
+            baseQuantity = (d["baseQuantity"] as? Number)?.toDouble(),
+            baseUnit = d["baseUnit"] as? String,
+            packCount = (d["packCount"] as? Number)?.toInt() ?: 1,
+            minUnits = (d["minUnits"] as? Number)?.toInt() ?: 1,
+            buyUnits = (d["buyUnits"] as? Number)?.toInt(),
+            freeUnits = (d["freeUnits"] as? Number)?.toInt(),
+            loyaltyRequired = d["loyaltyRequired"] as? Boolean ?: false,
+            couponRequired = d["couponRequired"] as? Boolean ?: false,
+            promoConditions = d["promoConditions"] as? String ?: "",
+            availability = d["availability"] as? String ?: "unknown",
+            sourceType = d["sourceType"] as? String ?: "",
+            sourceLabel = d["sourceLabel"] as? String ?: "",
+            verificationLabel = d["verificationLabel"] as? String ?: "unverified",
+            lastVerifiedAt = (d["lastVerifiedAt"] as? Number)?.toLong(),
+            isDemo = d["isDemo"] as? Boolean ?: false
+        )
+        BranchEntity::class -> BranchEntity(
+            id = doc.id,
+            retailerId = d["retailerId"] as? String ?: "",
+            name = d["name"] as? String ?: "",
+            emirate = d["emirate"] as? String ?: "",
+            address = d["address"] as? String ?: "",
+            latitude = (d["latitude"] as? Number)?.toDouble() ?: 0.0,
+            longitude = (d["longitude"] as? Number)?.toDouble() ?: 0.0,
+            phone = d["phone"] as? String ?: "",
+            openingHours = d["openingHours"] as? String ?: "",
+            coordsVerified = d["coordsVerified"] as? Boolean ?: false,
+            coordSource = d["coordSource"] as? String ?: ""
+        )
+        PromotionEntity::class -> {
+            val rawDiscount = d["discount"]
+            val rawDiscountInfo = (d["discountInfo"] as? String).orEmpty()
+            val resolvedDiscountInfo = rawDiscountInfo.ifBlank {
+                (rawDiscount as? String).orEmpty()
+            }
+            PromotionEntity(
+                id = doc.id,
+                retailerId = d["retailerId"] as? String ?: "",
+                title = d["title"] as? String ?: "",
+                description = d["description"] as? String ?: "",
+                discount = parseDoubleLenient(rawDiscount),
+                validFrom = parseEpochMs(d["validFrom"]),
+                validTo = parseEpochMs(d["validTo"]),
+                status = d["status"] as? String ?: "published",
+                createdAt = parseEpochMs(d["createdAt"]),
+                updatedAt = parseEpochMs(d["updatedAt"]),
+                discountInfo = resolvedDiscountInfo
+            )
+        }
+        FlyerEntity::class -> FlyerEntity(
+            id = doc.id,
+            retailerId = d["retailerId"] as? String ?: "",
+            title = d["title"] as? String ?: "",
+            imageUrl = d["imageUrl"] as? String ?: "",
+            pdfUrl = d["pdfUrl"] as? String ?: "",
+            pages = (d["pages"] as? Number)?.toInt() ?: 0,
+            status = d["status"] as? String ?: "published",
+            searchKeywords = (d["searchKeywords"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
+            validFrom = parseEpochMs(d["validFrom"]),
+            validTo = parseEpochMs(d["validTo"]),
+            views = (d["views"] as? Number)?.toLong() ?: 0L,
+            clicks = (d["clicks"] as? Number)?.toLong() ?: 0L,
+            createdAt = parseEpochMs(d["createdAt"]),
+            updatedAt = parseEpochMs(d["updatedAt"])
+        )
+        RetailerEntity::class -> {
+            val emiratesVal = when (val rawEmirates = d["emirates"]) {
+                is String -> rawEmirates
+                is List<*> -> rawEmirates.mapNotNull { it as? String }.joinToString(", ")
+                else -> ""
+            }
+            RetailerEntity(
+                id = doc.id,
+                name = d["name"] as? String ?: "",
+                logoUrl = d["logoUrl"] as? String ?: "",
+                status = d["status"] as? String ?: "published",
+                emirates = emiratesVal,
+                branchesCount = (d["branchesCount"] as? Number)?.toInt() ?: 0,
+                searchKeywords = (d["searchKeywords"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
+                createdAt = parseEpochMs(d["createdAt"]),
+                updatedAt = parseEpochMs(d["updatedAt"])
+            )
+        }
+        CouponEntity::class -> CouponEntity(
+            id = doc.id,
+            retailerId = d["retailerId"] as? String ?: "",
+            title = d["title"] as? String ?: "",
+            code = d["code"] as? String ?: "",
+            discountInfo = d["discountInfo"] as? String ?: "",
+            expiry = parseEpochMs(d["expiry"]),
+            status = d["status"] as? String ?: "published",
+            storeName = d["storeName"] as? String ?: "",
+            domain = d["domain"] as? String ?: "",
+            category = d["category"] as? String ?: "",
+            description = d["description"] as? String ?: "",
+            isGlobal = d["isGlobal"] as? Boolean ?: false,
+            isFeatured = d["isFeatured"] as? Boolean ?: false,
+            createdAt = parseEpochMs(d["createdAt"]),
+            updatedAt = parseEpochMs(d["updatedAt"])
+        )
+        else -> null
+    }
+}
+
 inline fun <reified T> Query.asEnvelopeFlow(pageLimit: Int = 0): Flow<SnapshotEnvelope<T>> = callbackFlow {
     var lastServerSync: Long? = null
     val listener = addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE) { snapshot, error ->
@@ -91,65 +270,8 @@ inline fun <reified T> Query.asEnvelopeFlow(pageLimit: Int = 0): Flow<SnapshotEn
                     snapshot.documents.mapNotNull { doc ->
                         try {
                             doc.toObject(T::class.java)
-                        } catch (docErr: Exception) {
-                            if (T::class == ProductEntity::class) {
-                                val d = doc.data ?: return@mapNotNull null
-                                ProductEntity(
-                                    id = doc.id,
-                                    masterProductId = d["masterProductId"] as? String ?: "",
-                                    retailerId = d["retailerId"] as? String ?: "",
-                                    flyerId = d["flyerId"] as? String ?: "",
-                                    name = d["name"] as? String ?: "",
-                                    normalizedName = d["normalizedName"] as? String ?: "",
-                                    searchKeywords = (d["searchKeywords"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
-                                    brand = d["brand"] as? String ?: "",
-                                    category = d["category"] as? String ?: "General",
-                                    barcode = d["barcode"] as? String ?: "",
-                                    imageUrl = d["imageUrl"] as? String ?: "",
-                                    currentPrice = (d["currentPrice"] as? Number)?.toDouble() ?: 0.0,
-                                    oldPrice = (d["oldPrice"] as? Number)?.toDouble(),
-                                    unitSize = (d["unitSize"] as? Number)?.toDouble() ?: 1.0,
-                                    unitType = d["unitType"] as? String ?: "unit",
-                                    validFrom = (d["validFrom"] as? Number)?.toLong() ?: 0L,
-                                    validTo = (d["validTo"] as? Number)?.toLong() ?: 0L,
-                                    status = d["status"] as? String ?: "published",
-                                    schemaVersion = (d["schemaVersion"] as? Number)?.toInt() ?: 1,
-                                    amountMinor = (d["amountMinor"] as? Number)?.toLong(),
-                                    comparisonPriceMinor = (d["comparisonPriceMinor"] as? Number)?.toLong(),
-                                    baseQuantity = (d["baseQuantity"] as? Number)?.toDouble(),
-                                    baseUnit = d["baseUnit"] as? String,
-                                    packCount = (d["packCount"] as? Number)?.toInt() ?: 1,
-                                    minUnits = (d["minUnits"] as? Number)?.toInt() ?: 1,
-                                    buyUnits = (d["buyUnits"] as? Number)?.toInt(),
-                                    freeUnits = (d["freeUnits"] as? Number)?.toInt(),
-                                    loyaltyRequired = d["loyaltyRequired"] as? Boolean ?: false,
-                                    couponRequired = d["couponRequired"] as? Boolean ?: false,
-                                    promoConditions = d["promoConditions"] as? String ?: "",
-                                    availability = d["availability"] as? String ?: "unknown",
-                                    sourceType = d["sourceType"] as? String ?: "",
-                                    sourceLabel = d["sourceLabel"] as? String ?: "",
-                                    verificationLabel = d["verificationLabel"] as? String ?: "unverified",
-                                    lastVerifiedAt = (d["lastVerifiedAt"] as? Number)?.toLong(),
-                                    isDemo = d["isDemo"] as? Boolean ?: false
-                                ) as? T
-                            } else if (T::class == BranchEntity::class) {
-                                val d = doc.data ?: return@mapNotNull null
-                                BranchEntity(
-                                    id = doc.id,
-                                    retailerId = d["retailerId"] as? String ?: "",
-                                    name = d["name"] as? String ?: "",
-                                    emirate = d["emirate"] as? String ?: "",
-                                    address = d["address"] as? String ?: "",
-                                    latitude = (d["latitude"] as? Number)?.toDouble() ?: 0.0,
-                                    longitude = (d["longitude"] as? Number)?.toDouble() ?: 0.0,
-                                    phone = d["phone"] as? String ?: "",
-                                    openingHours = d["openingHours"] as? String ?: "",
-                                    coordsVerified = d["coordsVerified"] as? Boolean ?: false,
-                                    coordSource = d["coordSource"] as? String ?: ""
-                                ) as? T
-                            } else {
-                                null
-                            }
+                        } catch (_: Exception) {
+                            mapDocumentTolerantly(doc, T::class) as? T
                         }
                     }
                 } catch (fatal: Exception) {
@@ -187,65 +309,8 @@ inline fun <reified T> Query.asFlow(): Flow<List<T>> = callbackFlow {
                     val parsed = snapshot.documents.mapNotNull { doc ->
                         try {
                             doc.toObject(T::class.java)
-                        } catch (docErr: Exception) {
-                            if (T::class == ProductEntity::class) {
-                                val d = doc.data ?: return@mapNotNull null
-                                ProductEntity(
-                                    id = doc.id,
-                                    masterProductId = d["masterProductId"] as? String ?: "",
-                                    retailerId = d["retailerId"] as? String ?: "",
-                                    flyerId = d["flyerId"] as? String ?: "",
-                                    name = d["name"] as? String ?: "",
-                                    normalizedName = d["normalizedName"] as? String ?: "",
-                                    searchKeywords = (d["searchKeywords"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
-                                    brand = d["brand"] as? String ?: "",
-                                    category = d["category"] as? String ?: "General",
-                                    barcode = d["barcode"] as? String ?: "",
-                                    imageUrl = d["imageUrl"] as? String ?: "",
-                                    currentPrice = (d["currentPrice"] as? Number)?.toDouble() ?: 0.0,
-                                    oldPrice = (d["oldPrice"] as? Number)?.toDouble(),
-                                    unitSize = (d["unitSize"] as? Number)?.toDouble() ?: 1.0,
-                                    unitType = d["unitType"] as? String ?: "unit",
-                                    validFrom = (d["validFrom"] as? Number)?.toLong() ?: 0L,
-                                    validTo = (d["validTo"] as? Number)?.toLong() ?: 0L,
-                                    status = d["status"] as? String ?: "published",
-                                    schemaVersion = (d["schemaVersion"] as? Number)?.toInt() ?: 1,
-                                    amountMinor = (d["amountMinor"] as? Number)?.toLong(),
-                                    comparisonPriceMinor = (d["comparisonPriceMinor"] as? Number)?.toLong(),
-                                    baseQuantity = (d["baseQuantity"] as? Number)?.toDouble(),
-                                    baseUnit = d["baseUnit"] as? String,
-                                    packCount = (d["packCount"] as? Number)?.toInt() ?: 1,
-                                    minUnits = (d["minUnits"] as? Number)?.toInt() ?: 1,
-                                    buyUnits = (d["buyUnits"] as? Number)?.toInt(),
-                                    freeUnits = (d["freeUnits"] as? Number)?.toInt(),
-                                    loyaltyRequired = d["loyaltyRequired"] as? Boolean ?: false,
-                                    couponRequired = d["couponRequired"] as? Boolean ?: false,
-                                    promoConditions = d["promoConditions"] as? String ?: "",
-                                    availability = d["availability"] as? String ?: "unknown",
-                                    sourceType = d["sourceType"] as? String ?: "",
-                                    sourceLabel = d["sourceLabel"] as? String ?: "",
-                                    verificationLabel = d["verificationLabel"] as? String ?: "unverified",
-                                    lastVerifiedAt = (d["lastVerifiedAt"] as? Number)?.toLong(),
-                                    isDemo = d["isDemo"] as? Boolean ?: false
-                                ) as? T
-                            } else if (T::class == BranchEntity::class) {
-                                val d = doc.data ?: return@mapNotNull null
-                                BranchEntity(
-                                    id = doc.id,
-                                    retailerId = d["retailerId"] as? String ?: "",
-                                    name = d["name"] as? String ?: "",
-                                    emirate = d["emirate"] as? String ?: "",
-                                    address = d["address"] as? String ?: "",
-                                    latitude = (d["latitude"] as? Number)?.toDouble() ?: 0.0,
-                                    longitude = (d["longitude"] as? Number)?.toDouble() ?: 0.0,
-                                    phone = d["phone"] as? String ?: "",
-                                    openingHours = d["openingHours"] as? String ?: "",
-                                    coordsVerified = d["coordsVerified"] as? Boolean ?: false,
-                                    coordSource = d["coordSource"] as? String ?: ""
-                                ) as? T
-                            } else {
-                                null
-                            }
+                        } catch (_: Exception) {
+                            mapDocumentTolerantly(doc, T::class) as? T
                         }
                     }
                     trySend(parsed)

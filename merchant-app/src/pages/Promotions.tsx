@@ -73,6 +73,9 @@ export default function Promotions() {
   };
 
   const handleEditClick = (promo: any) => {
+    const startDate = typeof promo.validFrom === 'number' && promo.validFrom > 0
+      ? new Date(promo.validFrom).toISOString().split('T')[0]
+      : (typeof promo.validFrom === 'string' ? promo.validFrom : '');
     const expiryDate = typeof promo.validTo === 'number' && promo.validTo > 0
       ? new Date(promo.validTo).toISOString().split('T')[0]
       : (typeof promo.validTo === 'string' ? promo.validTo : '');
@@ -80,8 +83,8 @@ export default function Promotions() {
       title: promo.title || '',
       code: promo.code || '',
       description: promo.description || '',
-      discountInfo: promo.discountInfo || promo.discount || '',
-      validFrom: promo.validFrom || '',
+      discountInfo: promo.discountInfo || (typeof promo.discount === 'number' && promo.discount > 0 ? `${promo.discount}% OFF` : (promo.discount || '')),
+      validFrom: startDate,
       validTo: expiryDate,
       type: promo.type || 'coupon',
       status: promo.status || 'published',
@@ -102,11 +105,15 @@ export default function Promotions() {
       const isCoupon = newPromo.type === 'coupon';
       const isGlobalCoupon = isAdminUser && isCoupon && newPromo.isGlobal;
       const now = Date.now();
+      const parsedFrom = newPromo.validFrom ? (Date.parse(newPromo.validFrom) || 0) : 0;
       const parsedExpiry = newPromo.validTo ? (Date.parse(newPromo.validTo) || 0) : 0;
+      const discountMatch = String(newPromo.discountInfo || '').match(/(\d+(?:\.\d+)?)/);
+      const parsedDiscount = discountMatch ? parseFloat(discountMatch[1]) : 0;
       const payload: any = {
         retailerId: isGlobalCoupon ? '' : (isRetailerUser ? (user?.retailerId || '') : (newPromo.retailerId || '')),
         title: newPromo.title || newPromo.storeName,
         discountInfo: newPromo.discountInfo,
+        discount: parsedDiscount,
         status: newPromo.status
       };
       
@@ -123,19 +130,19 @@ export default function Promotions() {
         }
       } else {
         payload.description = newPromo.description;
-        payload.validFrom = newPromo.validFrom;
-        payload.validTo = newPromo.validTo;
+        payload.validFrom = parsedFrom;
+        payload.validTo = parsedExpiry;
       }
 
       if (isEditing && editingId) {
-        payload.updatedAt = isCoupon ? now : new Date().toISOString();
+        payload.updatedAt = now;
         if (isCoupon) await updateCoupon(editingId, payload);
         else await updatePromo(editingId, payload);
         showToast('Promotion updated successfully', 'success');
       } else {
         payload.usageCount = 0;
-        payload.createdAt = isCoupon ? now : new Date().toISOString();
-        payload.updatedAt = isCoupon ? now : new Date().toISOString();
+        payload.createdAt = now;
+        payload.updatedAt = now;
         if (isCoupon) await addCoupon(payload);
         else await addPromo(payload);
         showToast('Promotion added successfully', 'success');

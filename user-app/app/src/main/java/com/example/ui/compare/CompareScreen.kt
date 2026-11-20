@@ -55,7 +55,7 @@ fun CompareScreen(
     // Filters
     var selectedCategory by remember { mutableStateOf<String?>(null) }
     var selectedRetailerId by remember { mutableStateOf<String?>(null) }
-    var maxPrice by remember { mutableStateOf(500f) }
+    var maxPrice by remember { mutableStateOf(5000f) }
     var minDiscount by remember { mutableStateOf(0f) }
 
     LaunchedEffect(searchQuery) {
@@ -72,9 +72,10 @@ fun CompareScreen(
     val shoppingItems = listViewModel?.uiState?.collectAsState()?.value ?: emptyList()
     val allProducts by viewModel.products.collectAsState()
     val allStores by viewModel.stores.collectAsState()
+    val branches by viewModel.branches.collectAsState()
     
     val filteredProducts = products.filter { product ->
-        val matchesCategory = selectedCategory == null || product.category.equals(selectedCategory, true)
+        val matchesCategory = selectedCategory == null || product.category.contains(selectedCategory!!, ignoreCase = true)
         val matchesRetailer = selectedRetailerId == null || product.retailerId == selectedRetailerId
         val matchesPrice = product.currentPrice <= maxPrice
         val discount = if (product.oldPrice != null && product.oldPrice > 0) ((product.oldPrice - product.currentPrice)/product.oldPrice * 100).toFloat() else 0f
@@ -105,7 +106,7 @@ fun CompareScreen(
                
                Text("Category", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-                   val cats = listOf("All", "Groceries", "Electronics", "Fashion", "Home")
+                   val cats = listOf("All", "Groceries", "Fresh Food", "Electronics", "Home & Kitchen", "Household")
                    items(cats) { cat ->
                        val isSelected = (cat == "All" && selectedCategory == null) || cat == selectedCategory
                        FilterChip(
@@ -159,7 +160,7 @@ fun CompareScreen(
                Slider(
                    value = maxPrice, 
                    onValueChange = { maxPrice = it }, 
-                   valueRange = 0f..1000f,
+                   valueRange = 0f..5000f,
                    colors = SliderDefaults.colors(
                        thumbColor = MaterialTheme.colorScheme.primary,
                        activeTrackColor = MaterialTheme.colorScheme.primary
@@ -415,7 +416,7 @@ fun CompareScreen(
                     val minPrice = identicals.minByOrNull { it.currentPrice }?.currentPrice ?: Double.MAX_VALUE
                     val isCheapest = identicals.size > 1 && product.currentPrice <= minPrice
 
-                    val (nearestBranch, distanceKm) = viewModel.getNearestBranchAndDistance(product.retailerId)
+                    val (nearestBranch, distanceKm) = branches.let { viewModel.getNearestBranchAndDistance(product.retailerId) }
                     SearchResultItem(
                         product = product,
                         store = viewModel.getStore(product.retailerId),
@@ -650,32 +651,32 @@ fun SearchResultItem(
                     color = Slate400
                 )
                 Spacer(modifier = Modifier.height(6.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val sourceBadgeText = when (product.verificationLabel) {
-                        "merchant_confirmed" -> "Merchant Confirmed"
-                        "admin_reviewed" -> "Reviewed Offer"
-                        else -> "Flyer Listing"
-                    }
-                    Surface(
-                        color = Color(0xFFF1F5F9),
-                        shape = RoundedCornerShape(6.dp)
-                    ) {
-                        Text(
-                            text = sourceBadgeText,
-                            color = Slate600,
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-                    if (unitPriceText != null) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = unitPriceText,
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                            color = Slate500
-                        )
-                    }
+                val sourceBadgeText = when (product.verificationLabel) {
+                    "merchant_confirmed" -> "Merchant Confirmed"
+                    "admin_reviewed" -> "Reviewed Offer"
+                    else -> "Flyer Listing"
+                }
+                Surface(
+                    color = Color(0xFFF1F5F9),
+                    shape = RoundedCornerShape(6.dp)
+                ) {
+                    Text(
+                        text = sourceBadgeText,
+                        color = Slate600,
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+                if (unitPriceText != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = unitPriceText,
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = Slate500,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
             Spacer(modifier = Modifier.width(8.dp))
