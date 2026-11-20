@@ -5,7 +5,6 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -14,7 +13,6 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -32,6 +30,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -54,44 +53,6 @@ data class UaeStoreCoupon(
     val isFeatured: Boolean = false
 )
 
-private val uaeTrendingCoupons = listOf(
-    UaeStoreCoupon("noon", "Noon UAE", "noon.com", "10% OFF", "ALC44", "Shopping", "Cashback & sitewide", Color(0xFFCA8A04), Color(0xFFFEF9C3), isFeatured = true),
-    UaeStoreCoupon("amazon", "Amazon.ae", "amazon.ae", "15% OFF", "CLIP15", "Shopping", "UAE Prime & bank deals", Color(0xFFD97706), Color(0xFFFFEDD5), isFeatured = true),
-    UaeStoreCoupon("namshi", "Namshi UAE", "namshi.com", "20% OFF", "ACP57", "Fashion", "Apparel & footwear", Color(0xFF0F766E), Color(0xFFCCFBF1)),
-    UaeStoreCoupon("shein", "SHEIN UAE", "shein.com", "15% OFF", "SHEIN15", "Fashion", "Extra off sitewide", Color(0xFF1E293B), Color(0xFFF1F5F9)),
-    UaeStoreCoupon("temu", "Temu UAE", "temu.com", "30% OFF", "TEM13", "Shopping", "Sitewide & bundles", Color(0xFFEA580C), Color(0xFFFFEDD5)),
-    UaeStoreCoupon("trendyol", "Trendyol UAE", "trendyol.com", "15% OFF", "WELCOME15", "Fashion", "Turkish fashion & home", Color(0xFFEA580C), Color(0xFFFFF7ED)),
-    UaeStoreCoupon("ounass", "Ounass UAE", "ounass.ae", "10% OFF", "APP10", "Fashion", "Luxury designer edits", Color(0xFF334155), Color(0xFFF8FAFC)),
-    UaeStoreCoupon("sivvi", "SIVVI UAE", "sivvi.com", "30% OFF", "SGG200", "Fashion", "Extra off sale & new", Color(0xFF7C3AED), Color(0xFFF3E8FF)),
-    UaeStoreCoupon("6thstreet", "6thStreet UAE", "6thstreet.com", "16% OFF", "AR79", "Fashion", "Footwear & lifestyle", Color(0xFF0284C7), Color(0xFFE0F2FE)),
-    UaeStoreCoupon("vogacloset", "VogaCloset UAE", "vogacloset.com", "40% OFF", "NEG", "Fashion", "UK & EU fashion", Color(0xFFBE185D), Color(0xFFFCE7F3)),
-    UaeStoreCoupon("bloomingdales", "Bloomingdale's", "bloomingdales.ae", "20% OFF", "C25", "Fashion", "Luxury fashion & beauty", Color(0xFF1F2937), Color(0xFFF3F4F6)),
-    UaeStoreCoupon("farfetch", "Farfetch UAE", "farfetch.com", "15% OFF", "FF15", "Fashion", "Designer collections", Color(0xFF0F172A), Color(0xFFE2E8F0)),
-    UaeStoreCoupon("levelshoes", "Level Shoes", "levelshoes.com", "10% OFF", "AAD44", "Fashion", "Luxury shoes & bags", Color(0xFF475569), Color(0xFFF1F5F9)),
-    UaeStoreCoupon("sephora", "Sephora UAE", "sephora.ae", "7% OFF", "ALC5", "Beauty", "Makeup & skincare", Color(0xFF111827), Color(0xFFF3F4F6)),
-    UaeStoreCoupon("bbw", "Bath & Body Works", "bathandbodyworks.ae", "10% OFF", "PF74", "Beauty", "Candles & body care", Color(0xFF1D4ED8), Color(0xFFDBEAFE)),
-    UaeStoreCoupon("faces", "Faces UAE", "faces.ae", "15% OFF", "CW78", "Beauty", "Fragrances & beauty", Color(0xFF9333EA), Color(0xFFF3E8FF)),
-    UaeStoreCoupon("vs", "Victoria's Secret", "victoriassecret.ae", "15% OFF", "PFXA", "Beauty", "Mists & sleepwear", Color(0xFFDB2777), Color(0xFFFCE7F3)),
-    UaeStoreCoupon("centrepoint", "Centrepoint", "centrepointstores.com", "15% OFF", "CPALC", "Fashion", "Fashion, baby & beauty", Color(0xFFDC2626), Color(0xFFFEE2E2)),
-    UaeStoreCoupon("max", "Max Fashion UAE", "maxfashion.com", "10% OFF", "YD6", "Fashion", "Family value fashion", Color(0xFF2563EB), Color(0xFFDBEAFE)),
-    UaeStoreCoupon("splash", "Splash UAE", "splashfashions.com", "20% OFF", "EPA", "Fashion", "Trendy apparel", Color(0xFFE11D48), Color(0xFFFFE4E6)),
-    UaeStoreCoupon("homecentre", "Home Centre", "homecentre.com", "10% OFF", "HCMISSU10", "Home", "Furniture & decor", Color(0xFFB45309), Color(0xFFFEF3C7)),
-    UaeStoreCoupon("homebox", "Home Box UAE", "homeboxstores.com", "15% OFF", "HO15", "Home", "Modern homeware", Color(0xFF0D9488), Color(0xFFCCFBF1)),
-    UaeStoreCoupon("hm", "H&M UAE", "ae.hm.com", "10% OFF", "PF347", "Fashion", "Apparel & basics", Color(0xFFB91C1C), Color(0xFFFEE2E2)),
-    UaeStoreCoupon("adidas", "Adidas UAE", "adidas.ae", "15% OFF", "RAN15", "Sports", "Sneakers & sportswear", Color(0xFF0F172A), Color(0xFFE2E8F0)),
-    UaeStoreCoupon("puma", "Puma UAE", "ae.puma.com", "15% OFF", "P16", "Sports", "Running & training", Color(0xFFDC2626), Color(0xFFFEE2E2)),
-    UaeStoreCoupon("sss", "Sun & Sand Sports", "sssports.com", "20% OFF", "ALC10", "Sports", "Sports gear & shoes", Color(0xFFEA580C), Color(0xFFFFEDD5)),
-    UaeStoreCoupon("footlocker", "Foot Locker UAE", "footlocker.ae", "10% OFF", "A14M", "Sports", "Sneakers & streetwear", Color(0xFF1E293B), Color(0xFFF1F5F9)),
-    UaeStoreCoupon("mumzworld", "Mumzworld UAE", "mumzworld.com", "17% OFF", "ACP", "Kids", "Mother, baby & toys", Color(0xFF059669), Color(0xFFD1FAE5)),
-    UaeStoreCoupon("firstcry", "FirstCry UAE", "firstcry.ae", "10% OFF", "FA42", "Kids", "Kids apparel & gear", Color(0xFFD97706), Color(0xFFFEF3C7)),
-    UaeStoreCoupon("iherb", "iHerb UAE", "iherb.com", "20% OFF", "LNI1840", "Health", "Vitamins & wellness", Color(0xFF16A34A), Color(0xFFDCFCE7)),
-    UaeStoreCoupon("eyewa", "Eyewa UAE", "eyewa.com", "10% OFF", "VCME", "Beauty", "Sunglasses & lenses", Color(0xFF4F46E5), Color(0xFFE0E7FF)),
-    UaeStoreCoupon("carrefour", "Carrefour UAE", "carrefouruae.com", "35% OFF", "HELLO40", "Food & Grocery", "First app grocery order", Color(0xFF1D4ED8), Color(0xFFDBEAFE)),
-    UaeStoreCoupon("talabat", "Talabat UAE", "talabat.com", "AED 30 OFF", "ALC30", "Food & Grocery", "Food & Mart orders", Color(0xFFEA580C), Color(0xFFFFEDD5)),
-    UaeStoreCoupon("deliveroo", "Deliveroo UAE", "deliveroo.ae", "50% OFF", "DCM11NEW", "Food & Grocery", "Restaurants & groceries", Color(0xFF0D9488), Color(0xFFCCFBF1)),
-    UaeStoreCoupon("aliexpress", "AliExpress UAE", "aliexpress.com", "50% OFF", "khasemNE9", "Shopping", "Tech, gadgets & home", Color(0xFFDC2626), Color(0xFFFEE2E2))
-).take(30)
-
 private val couponCategories = listOf(
     "All", "Shopping", "Fashion", "Beauty", "Home", "Sports", "Kids", "Health", "Food & Grocery"
 )
@@ -106,7 +67,7 @@ fun CouponsScreen(viewModel: DealFinderViewModel) {
     var selectedCategory by remember { mutableStateOf("All") }
     var copiedCode by remember { mutableStateOf<String?>(null) }
 
-    val (merchantCoupons, mergedUaeCoupons) = remember(firestoreCoupons) {
+    val (merchantCoupons, storeCoupons) = remember(firestoreCoupons) {
         val global = firestoreCoupons.filter { it.isGlobal || it.domain.isNotBlank() }
         val shopOnly = firestoreCoupons.filter { !it.isGlobal && it.domain.isBlank() }
 
@@ -119,39 +80,42 @@ fun CouponsScreen(viewModel: DealFinderViewModel) {
         )
         val remoteMapped = global.mapIndexed { idx, c ->
             val name = c.storeName.ifBlank { c.title }
-            val existing = uaeTrendingCoupons.find {
-                (c.domain.isNotBlank() && it.domain.equals(c.domain, ignoreCase = true)) ||
-                    it.storeName.equals(name, ignoreCase = true)
-            }
-            val (accent, bg) = if (existing != null) {
-                existing.accentColor to existing.cardBgColor
-            } else {
-                palette[idx % palette.size]
-            }
+            val (accent, bg) = palette[idx % palette.size]
             UaeStoreCoupon(
-                id = c.id.ifBlank { existing?.id ?: "remote_$idx" },
+                id = c.id.ifBlank { "remote_$idx" },
                 storeName = name,
-                domain = c.domain.ifBlank { existing?.domain ?: "" },
-                discountLabel = c.discountInfo.ifBlank { existing?.discountLabel ?: "DEAL" },
+                domain = c.domain,
+                discountLabel = c.discountInfo.ifBlank { "DEAL" },
                 code = c.code,
-                category = c.category.ifBlank { existing?.category ?: "Shopping" },
-                description = c.description.ifBlank { existing?.description ?: c.title },
+                category = c.category.ifBlank { "Shopping" },
+                description = c.description.ifBlank { c.title },
                 accentColor = accent,
                 cardBgColor = bg,
-                isFeatured = c.isFeatured || (existing?.isFeatured == true)
+                isFeatured = c.isFeatured
             )
         }
-        val overriddenKeys = remoteMapped.map { it.domain.lowercase() to it.storeName.lowercase() }.toSet()
-        val remainingBuiltIn = uaeTrendingCoupons.filter { builtIn ->
-            (builtIn.domain.lowercase() to builtIn.storeName.lowercase()) !in overriddenKeys
-        }
-        shopOnly to (remoteMapped + remainingBuiltIn)
+        shopOnly to remoteMapped
     }
 
-    val filteredStores = remember(mergedUaeCoupons, searchQuery, selectedCategory) {
-        mergedUaeCoupons.filter { item ->
-            val matchesCategory = selectedCategory == "All" || item.category == selectedCategory
-            val q = searchQuery.trim().lowercase()
+    val filteredMerchantCoupons = remember(merchantCoupons, searchQuery, selectedCategory) {
+        val q = searchQuery.trim().lowercase()
+        merchantCoupons.filter { coupon ->
+            val matchesCategory = selectedCategory == "All" ||
+                coupon.category.equals(selectedCategory, ignoreCase = true)
+            val matchesQuery = q.isEmpty() ||
+                coupon.title.lowercase().contains(q) ||
+                coupon.code.lowercase().contains(q) ||
+                coupon.discountInfo.lowercase().contains(q) ||
+                coupon.description.lowercase().contains(q)
+            matchesCategory && matchesQuery
+        }
+    }
+
+    val filteredStores = remember(storeCoupons, searchQuery, selectedCategory) {
+        val q = searchQuery.trim().lowercase()
+        storeCoupons.filter { item ->
+            val matchesCategory = selectedCategory == "All" ||
+                item.category.equals(selectedCategory, ignoreCase = true)
             val matchesQuery = q.isEmpty() ||
                 item.storeName.lowercase().contains(q) ||
                 item.code.lowercase().contains(q) ||
@@ -162,6 +126,7 @@ fun CouponsScreen(viewModel: DealFinderViewModel) {
     }
 
     fun copyCouponCode(storeName: String, code: String) {
+        if (code.isBlank()) return
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.setPrimaryClip(ClipData.newPlainText("Coupon Code", code))
         copiedCode = code
@@ -175,7 +140,8 @@ fun CouponsScreen(viewModel: DealFinderViewModel) {
                     Column {
                         Text("UAE Coupons", fontWeight = FontWeight.Bold)
                         Text(
-                            "Top ${uaeTrendingCoupons.size} UAE stores • Tap to copy",
+                            if (firestoreCoupons.isEmpty()) "Verified merchant & store codes"
+                            else "${filteredMerchantCoupons.size + filteredStores.size} active offers • Tap to copy",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -197,7 +163,7 @@ fun CouponsScreen(viewModel: DealFinderViewModel) {
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text("Search UAE stores or codes (e.g. Noon, Shein)...") },
+                    placeholder = { Text("Search stores, brands, or promo codes...") },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
@@ -227,7 +193,7 @@ fun CouponsScreen(viewModel: DealFinderViewModel) {
                 }
             }
 
-            if (merchantCoupons.isNotEmpty()) {
+            if (filteredMerchantCoupons.isNotEmpty()) {
                 item(span = { GridItemSpan(2) }) {
                     Text(
                         "Merchant & Shop Coupons",
@@ -236,7 +202,7 @@ fun CouponsScreen(viewModel: DealFinderViewModel) {
                         modifier = Modifier.padding(top = 4.dp)
                     )
                 }
-                items(merchantCoupons, span = { GridItemSpan(2) }) { coupon ->
+                items(filteredMerchantCoupons, key = { it.id }, span = { GridItemSpan(2) }) { coupon ->
                     val isCopied = copiedCode == coupon.code
                     Surface(
                         shape = RoundedCornerShape(18.dp),
@@ -293,46 +259,27 @@ fun CouponsScreen(viewModel: DealFinderViewModel) {
                 }
             }
 
-            item(span = { GridItemSpan(2) }) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "Trending UAE Stores",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        "${filteredStores.size} stores",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            if (filteredStores.isEmpty()) {
+            if (filteredStores.isNotEmpty()) {
                 item(span = { GridItemSpan(2) }) {
-                    Column(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                            .padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            Icons.Default.ConfirmationNumber,
-                            contentDescription = null,
-                            modifier = Modifier.size(40.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        Text(
+                            "Verified Store Codes",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("No matching UAE store coupons", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "${filteredStores.size} offers",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
-            } else {
                 items(
                     items = filteredStores,
                     key = { it.id },
@@ -343,6 +290,46 @@ fun CouponsScreen(viewModel: DealFinderViewModel) {
                         isCopied = copiedCode == store.code,
                         onCopy = { copyCouponCode(store.storeName, store.code) }
                     )
+                }
+            }
+
+            if (filteredMerchantCoupons.isEmpty() && filteredStores.isEmpty()) {
+                item(span = { GridItemSpan(2) }) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 48.dp, horizontal = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            Icons.Default.ConfirmationNumber,
+                            contentDescription = null,
+                            modifier = Modifier.size(44.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = if (firestoreCoupons.isEmpty()) {
+                                "No verified coupons available yet"
+                            } else {
+                                "No coupons match your search"
+                            },
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = if (firestoreCoupons.isEmpty()) {
+                                "Verified merchant coupons will appear here once published."
+                            } else {
+                                "Try clearing your search or selecting All."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
             }
         }
@@ -386,15 +373,17 @@ private fun BentoCouponCard(
                                 color = store.accentColor
                             )
                         }
-                        AsyncImage(
-                            model = "https://www.google.com/s2/favicons?domain=${store.domain}&sz=128",
-                            contentDescription = "${store.storeName} logo",
-                            contentScale = ContentScale.Fit,
-                            onSuccess = { showFallback = false },
-                            modifier = Modifier
-                                .size(30.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                        )
+                        if (store.domain.isNotBlank()) {
+                            AsyncImage(
+                                model = "https://www.google.com/s2/favicons?domain=${store.domain}&sz=128",
+                                contentDescription = "${store.storeName} logo",
+                                contentScale = ContentScale.Fit,
+                                onSuccess = { showFallback = false },
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                            )
+                        }
                     }
                 }
 
@@ -431,8 +420,8 @@ private fun BentoCouponCard(
             }
 
             CodeCopyPill(
-                code = store.code,
-                enabled = true,
+                code = store.code.ifBlank { "NO CODE" },
+                enabled = store.code.isNotBlank(),
                 isCopied = isCopied,
                 accentColor = store.accentColor,
                 onCopy = onCopy

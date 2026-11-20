@@ -3,8 +3,10 @@ package com.example.ui.auth
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Info
@@ -32,9 +34,6 @@ import androidx.credentials.exceptions.NoCredentialException
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.launch
-
-private const val GOOGLE_WEB_CLIENT_ID =
-    "102162589559-qu5k7vo8r5kb3pq2ijcc6p3h9q7ugsm2.apps.googleusercontent.com"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,6 +63,7 @@ fun AuthScreen(viewModel: AuthViewModel, onLoginSuccess: () -> Unit) {
     ) {
         Column(
             modifier = Modifier
+                .verticalScroll(rememberScrollState())
                 .padding(24.dp)
                 .fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -251,10 +251,20 @@ fun AuthScreen(viewModel: AuthViewModel, onLoginSuccess: () -> Unit) {
                     onClick = {
                         coroutineScope.launch {
                             try {
+                                val clientIdResId = context.resources.getIdentifier(
+                                    "default_web_client_id",
+                                    "string",
+                                    context.packageName
+                                )
+                                val webClientId = if (clientIdResId != 0) context.getString(clientIdResId) else ""
+                                if (webClientId.isBlank()) {
+                                    viewModel.setError("Google Sign-In is not configured for this build")
+                                    return@launch
+                                }
                                 val credentialManager = CredentialManager.create(context)
                                 val googleIdOption = GetGoogleIdOption.Builder()
                                     .setFilterByAuthorizedAccounts(false)
-                                    .setServerClientId(GOOGLE_WEB_CLIENT_ID)
+                                    .setServerClientId(webClientId)
                                     .setAutoSelectEnabled(false)
                                     .build()
                                 val request = GetCredentialRequest.Builder()

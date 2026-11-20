@@ -56,7 +56,7 @@ fun DealFinderApp(
     locationManager: com.example.data.LocationManager,
     loyaltyCardDao: com.example.data.LoyaltyCardDao? = null,
     localeManager: com.example.data.LocaleManager? = null,
-    initialRoute: String = Screen.Coupons.route
+    initialRoute: String = Screen.Home.route
 ) {
     val navController = rememberNavController()
     val navigateToTab: (String) -> Unit = { route ->
@@ -68,11 +68,11 @@ fun DealFinderApp(
     }
 
     val items = listOf(
-        Screen.Coupons,
         Screen.Home,
         Screen.Search,
-        Screen.Lists,
         Screen.Deals,
+        Screen.Lists,
+        Screen.Coupons,
         Screen.Account
     )
 
@@ -210,7 +210,11 @@ fun DealFinderApp(
                 FlyersScreen(
                     viewModel = dealViewModel,
                     onNavigateToFlyer = { flyerId -> navController.navigate(Screen.FlyerViewer.createRoute(flyerId)) },
-                    onNavigateToProduct = { productId -> navController.navigate(Screen.ProductDetail.createRoute(productId)) }
+                    onNavigateToProduct = { productId -> navController.navigate(Screen.ProductDetail.createRoute(productId)) },
+                    onNavigateToLocation = { navController.navigate(Screen.Location.route) },
+                    onNavigateToNotifications = { navController.navigate(Screen.Notifications.route) },
+                    onNavigateToSearch = { navigateToTab(Screen.Search.route) },
+                    onNavigateToNotificationSettings = { navController.navigate(Screen.NotificationSettings.route) }
                 ) 
             } 
             
@@ -230,7 +234,9 @@ fun DealFinderApp(
                     onNavigateToProduct = { productId -> navController.navigate(Screen.ProductDetail.createRoute(productId)) },
                     onNavigateToRetailer = { retailerId -> navController.navigate(Screen.Retailer.createRoute(retailerId)) },
                     onNavigateToFlyer = { flyerId -> navController.navigate(Screen.FlyerViewer.createRoute(flyerId)) },
-                    onNavigateToList = { navigateToTab(Screen.Lists.route) }
+                    onNavigateToList = { navigateToTab(Screen.Lists.route) },
+                    onNavigateToLocation = { navController.navigate(Screen.Location.route) },
+                    onNavigateToNotifications = { navController.navigate(Screen.Notifications.route) }
                 ) 
             }
             composable(Screen.Lists.route) {

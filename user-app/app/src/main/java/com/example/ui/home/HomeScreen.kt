@@ -411,30 +411,19 @@ fun HomeHeader(userName: String, locationName: String, onNavigateToCompare: () -
                         )
                     }
                 }
-                BadgedBox(
-                    badge = { 
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFEF4444))
-                        )
-                    }
+                Surface(
+                    shape = CircleShape,
+                    color = Color.White,
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier.size(40.dp),
+                    onClick = onNavigateToNotifications
                 ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = Color.White,
-                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                        modifier = Modifier.size(40.dp),
-                        onClick = onNavigateToNotifications
-                    ) {
-                        Icon(
-                            Icons.Outlined.Notifications, 
-                            contentDescription = "Notifications", 
-                            modifier = Modifier.padding(10.dp),
-                            tint = Slate800
-                        )
-                    }
+                    Icon(
+                        Icons.Outlined.Notifications, 
+                        contentDescription = "Notifications", 
+                        modifier = Modifier.padding(10.dp),
+                        tint = Slate800
+                    )
                 }
             }
         }
@@ -493,9 +482,9 @@ fun QuickActions(
     onNavigateToLoyaltyCards: () -> Unit = {}
 ) {
     val items = listOf(
-        QuickAction("Nearby Deals", Icons.Outlined.LocationOn, MockupMintBg, MockupMintGreen, onNavigateToFlyers),
-        QuickAction("All Flyers", Icons.Outlined.LocalOffer, MockupPeachBg, MockupOrange, onNavigateToFlyers),
-        QuickAction("Price Compare", Icons.AutoMirrored.Outlined.CompareArrows, MockupPurpleBg, MockupPurpleText, onNavigateToCompare),
+        QuickAction("Nearby", Icons.Outlined.LocationOn, MockupMintBg, MockupMintGreen, onNavigateToFlyers),
+        QuickAction("Flyers", Icons.Outlined.LocalOffer, MockupPeachBg, MockupOrange, onNavigateToFlyers),
+        QuickAction("Compare", Icons.AutoMirrored.Outlined.CompareArrows, MockupPurpleBg, MockupPurpleText, onNavigateToCompare),
         QuickAction("Smart List", Icons.AutoMirrored.Outlined.List, MockupYellowContainer, MockupYellowDark, onNavigateToList),
         QuickAction("Coupons", Icons.Outlined.ConfirmationNumber, MockupPinkBg, MockupPink, onNavigateToCoupons)
     )
@@ -506,7 +495,7 @@ fun QuickActions(
         items.forEach { item ->
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.width(64.dp)
+                modifier = Modifier.width(66.dp)
             ) {
                 Surface(
                     shape = CircleShape,
@@ -524,11 +513,11 @@ fun QuickActions(
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     item.name, 
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), 
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, lineHeight = 13.sp), 
                     fontWeight = FontWeight.SemiBold,
                     color = Slate800,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    maxLines = 1
+                    maxLines = 2
                 )
             }
         }

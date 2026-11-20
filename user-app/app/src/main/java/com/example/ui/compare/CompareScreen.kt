@@ -42,7 +42,9 @@ fun CompareScreen(
     onNavigateToProduct: (String) -> Unit = {},
     onNavigateToRetailer: (String) -> Unit = {},
     onNavigateToFlyer: (String) -> Unit = {},
-    onNavigateToList: () -> Unit = {}
+    onNavigateToList: () -> Unit = {},
+    onNavigateToLocation: () -> Unit = {},
+    onNavigateToNotifications: () -> Unit = {}
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     var searchQuery by remember { mutableStateOf("") }
@@ -202,7 +204,13 @@ fun CompareScreen(
                 .padding(paddingValues),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            item { SearchHeader(userLocation.value) }
+            item {
+                SearchHeader(
+                    userLocation = userLocation.value,
+                    onNavigateToLocation = onNavigateToLocation,
+                    onNavigateToNotifications = onNavigateToNotifications
+                )
+            }
 
             item {
                 Surface(
@@ -498,7 +506,11 @@ fun PopularSearchesRow(onSelect: (String) -> Unit) {
 }
 
 @Composable
-fun SearchHeader(userLocation: String) {
+fun SearchHeader(
+    userLocation: String,
+    onNavigateToLocation: () -> Unit = {},
+    onNavigateToNotifications: () -> Unit = {}
+) {
     Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -522,7 +534,8 @@ fun SearchHeader(userLocation: String) {
                 Surface(
                     shape = RoundedCornerShape(20.dp),
                     color = Color.White,
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    onClick = onNavigateToLocation
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -550,29 +563,19 @@ fun SearchHeader(userLocation: String) {
                         )
                     }
                 }
-                BadgedBox(
-                    badge = { 
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFEF4444))
-                        )
-                    }
+                Surface(
+                    shape = CircleShape,
+                    color = Color.White,
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier.size(40.dp),
+                    onClick = onNavigateToNotifications
                 ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = Color.White,
-                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(
-                            Icons.Outlined.Notifications, 
-                            contentDescription = "Notifications", 
-                            modifier = Modifier.padding(10.dp),
-                            tint = Slate800
-                        )
-                    }
+                    Icon(
+                        Icons.Outlined.Notifications, 
+                        contentDescription = "Notifications", 
+                        modifier = Modifier.padding(10.dp),
+                        tint = Slate800
+                    )
                 }
             }
         }

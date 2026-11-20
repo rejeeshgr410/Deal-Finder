@@ -18,15 +18,36 @@ export default function Login() {
     }
   }, [user, navigate]);
 
+  const formatLoginError = (err: any, fallback: string) => {
+    const code = err?.code || '';
+    const msg = String(err?.message || '');
+    if (code === 'auth/network-request-failed' || msg.includes('auth/network-request-failed')) {
+      return 'Network unavailable. Check your internet connection and try again.';
+    }
+    if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found' || msg.includes('auth/invalid-credential')) {
+      return 'Invalid email or password.';
+    }
+    if (code === 'auth/too-many-requests' || msg.includes('auth/too-many-requests')) {
+      return 'Too many failed attempts. Please wait a moment and try again.';
+    }
+    if (msg.toLowerCase().includes('cancel')) {
+      return 'Sign-in was cancelled.';
+    }
+    return msg || fallback;
+  };
+
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) return;
+    if (!email.trim() || !password) {
+      setError('Please enter both email and password.');
+      return;
+    }
     setError(null);
     setLoading(true);
     try {
-      await loginWithEmail(email, password);
+      await loginWithEmail(email.trim(), password);
     } catch (err: any) {
-      setError(err?.message || 'Login failed. Please check credentials.');
+      setError(formatLoginError(err, 'Login failed. Please check credentials.'));
     } finally {
       setLoading(false);
     }
@@ -38,7 +59,7 @@ export default function Login() {
     try {
       await loginWithGoogle();
     } catch (err: any) {
-      setError(err?.message || 'Google sign in failed.');
+      setError(formatLoginError(err, 'Google sign in failed.'));
     } finally {
       setLoading(false);
     }

@@ -6,7 +6,10 @@ import { httpsCallable } from 'firebase/functions';
 import { Capacitor } from '@capacitor/core';
 import { SocialLogin } from '@capgo/capacitor-social-login';
 
-const GOOGLE_WEB_CLIENT_ID = '102162589559-qu5k7vo8r5kb3pq2ijcc6p3h9q7ugsm2.apps.googleusercontent.com';
+const env = ((import.meta as any).env || {}) as Record<string, string | undefined>;
+const GOOGLE_WEB_CLIENT_ID =
+  env.VITE_GOOGLE_WEB_CLIENT_ID ||
+  '102162589559-qu5k7vo8r5kb3pq2ijcc6p3h9q7ugsm2.apps.googleusercontent.com';
 
 export type Role = 'super_admin' | 'admin' | 'moderator' | 'data_entry' | 'retailer_owner' | 'retailer_staff' | 'pending' | 'unauthorized' | null;
 
