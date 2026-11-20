@@ -40,6 +40,7 @@ coverage/
 *.keystore
 *.jks
 *.key
+**/src/debug/google-services.json
 .env
 .env.*
 !.env.example
