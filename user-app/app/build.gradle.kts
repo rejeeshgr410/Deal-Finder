@@ -57,6 +57,13 @@ android {
     compose = true
     buildConfig = true
   }
+  sourceSets {
+    getByName("main") {
+      java.directories.add("src/demo/java")
+      kotlin.directories.add("src/demo/java")
+      res.directories.add("src/demo/res")
+    }
+  }
   testOptions { unitTests { isIncludeAndroidResources = true } }
 }
 

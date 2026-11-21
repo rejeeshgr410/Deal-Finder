@@ -15,6 +15,16 @@ class FirestoreShoppingListDao(private val db: FirebaseFirestore, private val se
         }
     }
 
+    override suspend fun getItemById(id: String): ShoppingListItem? {
+        val userId = sessionManager.getUserId() ?: return null
+        return try {
+            db.collection("users").document(userId).collection("shopping_list").document(id)
+                .get().await().toObject(ShoppingListItem::class.java)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     override suspend fun insertItem(item: ShoppingListItem) {
         val userId = sessionManager.getUserId() ?: return
         val id = if (item.id.isEmpty() || item.id == "0") java.util.UUID.randomUUID().toString() else item.id

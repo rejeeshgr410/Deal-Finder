@@ -1,9 +1,9 @@
 package com.example.ui.compare
 
-import com.example.data.isIdenticalTo
-
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,52 +11,116 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.*
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.GridView
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.LocalOffer
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.SearchOff
+import androidx.compose.material.icons.outlined.ShoppingCart
+import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import coil.compose.AsyncImage
+import com.example.R
+import com.example.data.FlyerEntity
+import com.example.data.LocationManager
 import com.example.data.ProductEntity
 import com.example.data.RetailerEntity
+import com.example.data.isIdenticalTo
+import com.example.domain.basket.OfferEligibility
+import com.example.ui.DealFinderViewModel
+import com.example.ui.lists.ListViewModel
 import com.example.ui.theme.*
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.concurrent.TimeUnit
+
+private data class SearchFilterTab(
+    val label: String,
+    val icon: ImageVector?
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CompareScreen(
-    viewModel: com.example.ui.DealFinderViewModel, 
-    onAddToList: (com.example.data.ProductEntity) -> Unit, 
-    listViewModel: com.example.ui.lists.ListViewModel? = null,
+    viewModel: DealFinderViewModel,
+    onAddToList: (ProductEntity) -> Unit,
+    listViewModel: ListViewModel? = null,
+    openFiltersInitially: Boolean = false,
+    onConsumedOpenFilters: () -> Unit = {},
+    initialSearchQuery: String? = null,
+    onConsumedInitialSearchQuery: () -> Unit = {},
     onNavigateToProduct: (String) -> Unit = {},
     onNavigateToRetailer: (String) -> Unit = {},
     onNavigateToFlyer: (String) -> Unit = {},
     onNavigateToList: () -> Unit = {},
     onNavigateToLocation: () -> Unit = {},
-    onNavigateToNotifications: () -> Unit = {}
+    onNavigateToNotifications: () -> Unit = {},
+    onNavigateToNotificationSettings: () -> Unit = onNavigateToNotifications,
+    onBack: () -> Unit = {}
 ) {
-    var selectedTab by remember { mutableStateOf(0) }
+    val palette = LocalAppPalette.current
+    val context = LocalContext.current
+
+    var selectedTab by remember { mutableIntStateOf(0) }
     var searchQuery by remember { mutableStateOf("") }
     var sortBy by remember { mutableStateOf("Relevance") }
-    var sortExpanded by remember { mutableStateOf(false) }
     var showFilterSheet by remember { mutableStateOf(false) }
-    
-    // Filters
+
     var selectedCategory by remember { mutableStateOf<String?>(null) }
     var selectedRetailerId by remember { mutableStateOf<String?>(null) }
-    var maxPrice by remember { mutableStateOf(5000f) }
-    var minDiscount by remember { mutableStateOf(0f) }
+    var maxPrice by remember { mutableFloatStateOf(5000f) }
+    var minDiscount by remember { mutableFloatStateOf(0f) }
+
+    LaunchedEffect(openFiltersInitially) {
+        if (openFiltersInitially) {
+            showFilterSheet = true
+            onConsumedOpenFilters()
+        }
+    }
+
+    LaunchedEffect(initialSearchQuery) {
+        if (!initialSearchQuery.isNullOrBlank()) {
+            searchQuery = initialSearchQuery
+            selectedTab = 0
+            onConsumedInitialSearchQuery()
+        }
+    }
 
     LaunchedEffect(searchQuery) {
         viewModel.updateSearchQuery(searchQuery)
@@ -65,519 +129,1144 @@ fun CompareScreen(
     val products by viewModel.searchResultsProducts.collectAsState()
     val stores by viewModel.searchResultsStores.collectAsState()
     val flyers by viewModel.searchResultsFlyers.collectAsState()
-    val recentSearches by viewModel.recentSearches.collectAsState()
-    val suggestedSearches by viewModel.suggestedSearches.collectAsState()
-    val syncState by viewModel.syncState.collectAsState()
-    val userLocation = viewModel.selectedEmirate.collectAsState()
-    val shoppingItems = listViewModel?.uiState?.collectAsState()?.value ?: emptyList()
-    val allProducts by viewModel.products.collectAsState()
     val allStores by viewModel.stores.collectAsState()
     val branches by viewModel.branches.collectAsState()
-    
-    val filteredProducts = products.filter { product ->
-        val matchesCategory = selectedCategory == null || product.category.contains(selectedCategory!!, ignoreCase = true)
-        val matchesRetailer = selectedRetailerId == null || product.retailerId == selectedRetailerId
-        val matchesPrice = product.currentPrice <= maxPrice
-        val discount = if (product.oldPrice != null && product.oldPrice > 0) ((product.oldPrice - product.currentPrice)/product.oldPrice * 100).toFloat() else 0f
-        val matchesDiscount = discount >= minDiscount
-        matchesCategory && matchesRetailer && matchesPrice && matchesDiscount
-    }.let { list ->
-        when (sortBy) {
-            "Cheapest" -> list.sortedBy { it.currentPrice }
-            "Nearest" -> list.sortedBy { viewModel.getDistanceToStore(it.retailerId) ?: Double.MAX_VALUE }
-            "Biggest Discount" -> list.sortedByDescending { if (it.oldPrice != null && it.oldPrice > 0) (it.oldPrice - it.currentPrice)/it.oldPrice else 0.0 }
-            "Newest" -> list.sortedByDescending { it.validFrom }
-            else -> list
+    val syncState by viewModel.syncState.collectAsState()
+    val selectedEmirate by viewModel.selectedEmirate.collectAsState()
+    val recentSearches by viewModel.recentSearches.collectAsState()
+    val suggestedSearches by viewModel.suggestedSearches.collectAsState()
+    val listItems by (listViewModel?.uiState?.collectAsState() ?: remember { mutableStateOf(emptyList()) })
+
+    val localizedEmirate = remember(selectedEmirate, context) {
+        LocationManager.localizedEmirateName(context, selectedEmirate)
+    }
+    val currency = stringResource(R.string.currency_aed)
+
+    val filteredProducts = remember(
+        products,
+        selectedTab,
+        selectedCategory,
+        selectedRetailerId,
+        maxPrice,
+        minDiscount,
+        sortBy,
+        branches
+    ) {
+        products.filter { product ->
+            val hasDiscount = product.oldPrice != null && product.oldPrice > product.currentPrice
+            val matchesDealsTab = selectedTab != 1 || hasDiscount
+            val matchesCategory = selectedCategory == null || product.category.contains(selectedCategory!!, ignoreCase = true)
+            val matchesRetailer = selectedRetailerId == null || product.retailerId == selectedRetailerId
+            val matchesPrice = product.currentPrice <= maxPrice
+            val discount = if (product.oldPrice != null && product.oldPrice > 0) {
+                ((product.oldPrice - product.currentPrice) / product.oldPrice * 100).toFloat()
+            } else 0f
+            matchesDealsTab && matchesCategory && matchesRetailer && matchesPrice && discount >= minDiscount
+        }.let { list ->
+            when (sortBy) {
+                "Cheapest" -> list.sortedBy { it.currentPrice }
+                "Nearest" -> list.sortedBy { viewModel.getDistanceToStore(it.retailerId) ?: Double.MAX_VALUE }
+                "Biggest Discount" -> list.sortedByDescending {
+                    if (it.oldPrice != null && it.oldPrice > 0) (it.oldPrice - it.currentPrice) / it.oldPrice else 0.0
+                }
+                else -> list
+            }
         }
     }
-    
-    val filteredStores = stores
-    val filteredFlyers = flyers
-    
+
+    val filteredFlyers = remember(flyers, selectedRetailerId) {
+        if (selectedRetailerId == null) flyers
+        else flyers.filter { it.retailerId == selectedRetailerId }
+    }
+
+    val totalResultsCount = when (selectedTab) {
+        2 -> filteredFlyers.size
+        4 -> stores.size
+        else -> filteredProducts.size
+    }
+
+    val filterTabs = listOf(
+        SearchFilterTab(stringResource(R.string.tab_all), null),
+        SearchFilterTab(stringResource(R.string.tab_deals), Icons.Outlined.LocalOffer),
+        SearchFilterTab(stringResource(R.string.tab_flyers), Icons.Outlined.Storefront),
+        SearchFilterTab(stringResource(R.string.tab_products), Icons.Outlined.ShoppingCart),
+        SearchFilterTab(stringResource(R.string.tab_stores), Icons.Outlined.GridView)
+    )
+
     if (showFilterSheet) {
         ModalBottomSheet(
             onDismissRequest = { showFilterSheet = false },
-            containerColor = MaterialTheme.colorScheme.surface,
-            tonalElevation = 0.dp
+            containerColor = palette.surfaceGradStart,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
         ) {
-           Column(modifier = Modifier.padding(20.dp).padding(bottom = 32.dp)) {
-               Text("Filter Deals", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-               Spacer(modifier = Modifier.height(16.dp))
-               
-               Text("Category", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-               LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-                   val cats = listOf("All", "Groceries", "Fresh Food", "Electronics", "Home & Kitchen", "Household")
-                   items(cats) { cat ->
-                       val isSelected = (cat == "All" && selectedCategory == null) || cat == selectedCategory
-                       FilterChip(
-                           selected = isSelected, 
-                           onClick = { selectedCategory = if (cat == "All") null else cat }, 
-                           label = { Text(cat, style = MaterialTheme.typography.labelMedium) },
-                           shape = RoundedCornerShape(10.dp),
-                           colors = FilterChipDefaults.filterChipColors(
-                               selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                               selectedLabelColor = MaterialTheme.colorScheme.primary
-                           )
-                       )
-                   }
-               }
-
-               Spacer(modifier = Modifier.height(8.dp))
-               Text("Hypermarket", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-               val allStores = stores
-               LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-                   item {
-                       FilterChip(
-                           selected = selectedRetailerId == null, 
-                           onClick = { selectedRetailerId = null }, 
-                           label = { Text("All Stores", style = MaterialTheme.typography.labelMedium) },
-                           shape = RoundedCornerShape(10.dp),
-                           colors = FilterChipDefaults.filterChipColors(
-                               selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                               selectedLabelColor = MaterialTheme.colorScheme.primary
-                           )
-                       )
-                   }
-                   items(allStores) { store ->
-                       FilterChip(
-                           selected = selectedRetailerId == store.id, 
-                           onClick = { selectedRetailerId = store.id }, 
-                           label = { Text(store.name, style = MaterialTheme.typography.labelMedium) },
-                           shape = RoundedCornerShape(10.dp),
-                           colors = FilterChipDefaults.filterChipColors(
-                               selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                               selectedLabelColor = MaterialTheme.colorScheme.primary
-                           )
-                       )
-                   }
-               }
-               
-               Spacer(modifier = Modifier.height(12.dp))
-               Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                   Text("Max Price", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                   Text("AED ${maxPrice.toInt()}", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-               }
-               Slider(
-                   value = maxPrice, 
-                   onValueChange = { maxPrice = it }, 
-                   valueRange = 0f..5000f,
-                   colors = SliderDefaults.colors(
-                       thumbColor = MaterialTheme.colorScheme.primary,
-                       activeTrackColor = MaterialTheme.colorScheme.primary
-                   )
-               )
-               
-               Spacer(modifier = Modifier.height(8.dp))
-               Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                   Text("Minimum Discount", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                   Text("${minDiscount.toInt()}%", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-               }
-               Slider(
-                   value = minDiscount, 
-                   onValueChange = { minDiscount = it }, 
-                   valueRange = 0f..100f,
-                   colors = SliderDefaults.colors(
-                       thumbColor = MaterialTheme.colorScheme.primary,
-                       activeTrackColor = MaterialTheme.colorScheme.primary
-                   )
-               )
-               
-               Spacer(modifier = Modifier.height(20.dp))
-               Button(
-                   onClick = { showFilterSheet = false }, 
-                   modifier = Modifier.fillMaxWidth().height(48.dp),
-                   shape = RoundedCornerShape(12.dp),
-                   colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-               ) {
-                   Text("Apply Filters", color = Color.White, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-               }
-           }
-        }
-    }
-
-
-    Scaffold(
-        containerColor = BackgroundLight
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
-                SearchHeader(
-                    userLocation = userLocation.value,
-                    onNavigateToLocation = onNavigateToLocation,
-                    onNavigateToNotifications = onNavigateToNotifications
-                )
-            }
-
-            item {
-                Surface(
-                    shape = RoundedCornerShape(28.dp),
-                    color = Color.White,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp)
-                        .padding(horizontal = 16.dp),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(start = 16.dp, end = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.Search, 
-                            contentDescription = null, 
-                            tint = Slate400,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Box(modifier = Modifier.weight(1f)) {
-                            androidx.compose.foundation.text.BasicTextField(
-                                value = searchQuery,
-                                onValueChange = { searchQuery = it },
-                                textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                    color = Slate900,
-                                    fontWeight = FontWeight.Medium
-                                ),
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)
-                            )
-                            if (searchQuery.isEmpty()) {
-                                Text(
-                                    "rice 5kg", 
-                                    color = Slate400, 
-                                    style = MaterialTheme.typography.bodyMedium, 
-                                    modifier = Modifier.align(Alignment.CenterStart)
-                                )
-                            }
-                        }
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }, modifier = Modifier.size(32.dp)) {
-                                Icon(Icons.Default.Cancel, contentDescription = "Clear", tint = Slate400, modifier = Modifier.size(18.dp))
-                            }
-                        }
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Surface(
-                            shape = CircleShape,
-                            color = MockupYellowPill,
-                            modifier = Modifier.size(42.dp),
-                            onClick = { showFilterSheet = true }
-                        ) {
-                            Icon(
-                                Icons.Default.Tune, 
-                                contentDescription = "Filter", 
-                                tint = Slate900,
-                                modifier = Modifier.padding(10.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            if (syncState.isCachePotentiallyStale()) {
-                item {
-                    Surface(
-                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "Showing cached offers — data may be outdated.",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                modifier = Modifier.weight(1f)
-                            )
-                            TextButton(
-                                onClick = { viewModel.refreshCatalog() },
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
-                            ) {
-                                Text("Refresh", style = MaterialTheme.typography.labelSmall)
-                            }
-                        }
-                    }
-                }
-            }
-
-            item {
-                PopularSearchesRow(onSelect = { query -> searchQuery = query })
-            }
-
-            item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
-                        val headingText = if (searchQuery.isNotBlank()) "Results for \"$searchQuery\"" else "All Deals"
-                        Text(
-                            text = headingText,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Slate900
-                        )
-                        Text(
-                            text = if (syncState.hasMoreProducts) {
-                                "${filteredProducts.size} results shown (more available)"
-                            } else {
-                                "${filteredProducts.size} results found"
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Slate400
-                        )
+                    Text(
+                        text = stringResource(R.string.filter_and_sort),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = palette.textPrimary
+                    )
+                    TextButton(onClick = {
+                        selectedCategory = null
+                        selectedRetailerId = null
+                        maxPrice = 5000f
+                        minDiscount = 0f
+                        sortBy = "Relevance"
+                    }) {
+                        Text(stringResource(R.string.reset_filters), color = palette.crimsonLink, fontWeight = FontWeight.Bold)
                     }
-                    Box {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable { sortExpanded = true }
-                        ) {
-                            Text(
-                                "Sort by ", 
-                                style = MaterialTheme.typography.bodySmall, 
-                                color = Slate500
-                            )
-                            Text(
-                                sortBy, 
-                                style = MaterialTheme.typography.labelMedium, 
-                                color = Color(0xFF6D28D9), 
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.width(2.dp))
-                            Icon(
-                                Icons.Default.KeyboardArrowDown, 
-                                contentDescription = null, 
-                                modifier = Modifier.size(16.dp), 
-                                tint = Color(0xFF6D28D9)
+                }
+
+                // Sort By
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(stringResource(R.string.sort_by), fontWeight = FontWeight.SemiBold, color = palette.textPrimary, fontSize = 13.sp)
+                    val sortOptions = listOf(
+                        "Relevance" to stringResource(R.string.sort_relevance),
+                        "Cheapest" to stringResource(R.string.sort_cheapest),
+                        "Nearest" to stringResource(R.string.sort_nearest),
+                        "Biggest Discount" to stringResource(R.string.sort_discount)
+                    )
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(sortOptions) { (key, label) ->
+                            val isSel = sortBy == key
+                            FilterChip(
+                                selected = isSel,
+                                onClick = { sortBy = key },
+                                label = { Text(label, fontSize = 12.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = palette.crimsonPillBg,
+                                    selectedLabelColor = palette.crimsonLink
+                                )
                             )
                         }
-                        DropdownMenu(
-                            expanded = sortExpanded, 
-                            onDismissRequest = { sortExpanded = false }
-                        ) {
-                            listOf("Relevance", "Cheapest", "Nearest", "Biggest Discount", "Newest").forEach { option ->
-                                DropdownMenuItem(
-                                    text = { Text(option) }, 
-                                    onClick = { 
-                                        sortBy = option 
-                                        sortExpanded = false 
-                                    }
+                    }
+                }
+
+                // Category
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(stringResource(R.string.filter_category), fontWeight = FontWeight.SemiBold, color = palette.textPrimary, fontSize = 13.sp)
+                    val categories = listOf(null to stringResource(R.string.any), "Fresh Food" to "Fresh Food", "Groceries" to "Groceries", "Electronics" to "Electronics", "Home" to "Home & Kitchen", "Beauty" to "Beauty")
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(categories) { (catKey, label) ->
+                            FilterChip(
+                                selected = selectedCategory == catKey,
+                                onClick = { selectedCategory = if (selectedCategory == catKey) null else catKey },
+                                label = { Text(label, fontSize = 12.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = palette.crimsonPillBg,
+                                    selectedLabelColor = palette.crimsonLink
+                                )
+                            )
+                        }
+                    }
+                }
+
+                // Store / Retailer Filter
+                if (allStores.isNotEmpty()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(stringResource(R.string.filter_store), fontWeight = FontWeight.SemiBold, color = palette.textPrimary, fontSize = 13.sp)
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            item {
+                                FilterChip(
+                                    selected = selectedRetailerId == null,
+                                    onClick = { selectedRetailerId = null },
+                                    label = { Text(stringResource(R.string.all_stores), fontSize = 12.sp) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = palette.crimsonPillBg,
+                                        selectedLabelColor = palette.crimsonLink
+                                    )
+                                )
+                            }
+                            items(allStores, key = { it.id }) { store ->
+                                FilterChip(
+                                    selected = selectedRetailerId == store.id,
+                                    onClick = {
+                                        selectedRetailerId = if (selectedRetailerId == store.id) null else store.id
+                                    },
+                                    label = { Text(store.name, fontSize = 12.sp) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = palette.crimsonPillBg,
+                                        selectedLabelColor = palette.crimsonLink
+                                    )
                                 )
                             }
                         }
                     }
                 }
+
+                Column {
+                    val priceLabel = if (maxPrice >= 5000f) stringResource(R.string.any) else "$currency ${maxPrice.toInt()}"
+                    Text("${stringResource(R.string.max_price)}: $priceLabel", fontWeight = FontWeight.SemiBold, color = palette.textPrimary, fontSize = 13.sp)
+                    Slider(
+                        value = maxPrice,
+                        onValueChange = { maxPrice = it },
+                        valueRange = 10f..5000f,
+                        colors = SliderDefaults.colors(thumbColor = FigmaCrimsonEnd, activeTrackColor = FigmaCrimsonStart)
+                    )
+                }
+
+                Column {
+                    Text("${stringResource(R.string.min_discount)}: ${minDiscount.toInt()}%", fontWeight = FontWeight.SemiBold, color = palette.textPrimary, fontSize = 13.sp)
+                    Slider(
+                        value = minDiscount,
+                        onValueChange = { minDiscount = it },
+                        valueRange = 0f..80f,
+                        colors = SliderDefaults.colors(thumbColor = FigmaCrimsonEnd, activeTrackColor = FigmaCrimsonStart)
+                    )
+                }
+
+                Button(
+                    onClick = { showFilterSheet = false },
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.buttonColors(containerColor = FigmaCrimsonEnd)
+                ) {
+                    Text(stringResource(R.string.apply_filters), fontWeight = FontWeight.Bold, color = Color.White)
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+        }
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(top = 4.dp, bottom = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        // 1. Top Bar: Back + Elevated Pill Search Input + Location & List Chips
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .shadow(6.dp, CircleShape, ambientColor = Color(0x26272445), spotColor = Color(0x26272445))
+                            .clip(CircleShape)
+                            .background(Brush.verticalGradient(listOf(palette.surfaceGradStart, palette.surfaceGradMid, palette.surfaceGradEnd)))
+                            .border(1.dp, palette.cardBorder, CircleShape)
+                            .clickable { onBack() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                            contentDescription = "Back",
+                            tint = palette.textPrimary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .shadow(7.dp, RoundedCornerShape(26.dp), ambientColor = Color(0x2224203C), spotColor = Color(0x2224203C))
+                            .clip(RoundedCornerShape(26.dp))
+                            .background(Brush.verticalGradient(listOf(palette.surfaceGradStart, palette.surfaceGradMid, palette.surfaceGradEnd)))
+                            .border(1.dp, palette.cardBorder, RoundedCornerShape(26.dp))
+                            .padding(start = 14.dp, end = 6.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = null,
+                                tint = palette.textPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Box(
+                                modifier = Modifier.weight(1f),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                if (searchQuery.isEmpty()) {
+                                    Text(
+                                        text = stringResource(R.string.search_placeholder),
+                                        style = TextStyle(
+                                            color = palette.textMuted,
+                                            fontSize = 12.sp,
+                                            platformStyle = PlatformTextStyle(includeFontPadding = false)
+                                        ),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                BasicTextField(
+                                    value = searchQuery,
+                                    onValueChange = { searchQuery = it },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                    keyboardActions = KeyboardActions(
+                                        onSearch = {
+                                            if (searchQuery.isNotBlank()) {
+                                                viewModel.insertSearchHistory(searchQuery)
+                                            }
+                                        }
+                                    ),
+                                    textStyle = TextStyle(
+                                        color = palette.textPrimary,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        platformStyle = PlatformTextStyle(includeFontPadding = false)
+                                    ),
+                                    cursorBrush = SolidColor(FigmaCrimsonEnd),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                            if (searchQuery.isNotEmpty()) {
+                                Icon(
+                                    imageVector = Icons.Default.Cancel,
+                                    contentDescription = "Clear",
+                                    tint = palette.textMuted,
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .clickable { searchQuery = "" }
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(Brush.verticalGradient(listOf(FigmaCrimsonStart, FigmaCrimsonEnd)))
+                                    .clickable { showFilterSheet = true },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Tune,
+                                    contentDescription = stringResource(R.string.filter_and_sort),
+                                    tint = Color.White,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Location & Smart List quick status strip
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(Brush.verticalGradient(listOf(palette.surfaceGradStart, palette.surfaceGradMid, palette.surfaceGradEnd)))
+                            .border(1.dp, palette.cardBorder, RoundedCornerShape(50))
+                            .clickable { onNavigateToLocation() }
+                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = FigmaCrimsonLink, modifier = Modifier.size(13.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(localizedEmirate, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = palette.textPrimary)
+                            Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = palette.textMuted, modifier = Modifier.size(14.dp))
+                        }
+                    }
+
+                    if (listItems.isNotEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(palette.crimsonPillBg)
+                                .border(1.dp, palette.crimsonPillBorder, RoundedCornerShape(50))
+                                .clickable { onNavigateToList() }
+                                .padding(horizontal = 10.dp, vertical = 5.dp)
+                        ) {
+                            Text(
+                                text = "${stringResource(R.string.action_smart_list)} (${listItems.size})",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = palette.crimsonLink
+                            )
+                        }
+                    }
+
+                    if (sortBy != "Relevance" || selectedCategory != null || selectedRetailerId != null || minDiscount > 0f || maxPrice < 5000f) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(Color(0xFFDCFCE7))
+                                .clickable { showFilterSheet = true }
+                                .padding(horizontal = 10.dp, vertical = 5.dp)
+                        ) {
+                            Text(
+                                text = sortBy,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = FigmaDiscountGreen
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Recent & Trending Searches when search bar is empty
+        if (searchQuery.isBlank() && (recentSearches.isNotEmpty() || suggestedSearches.isNotEmpty())) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (recentSearches.isNotEmpty()) {
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 14.dp),
+                            horizontalArrangement = Arrangement.spacedBy(7.dp)
+                        ) {
+                            items(recentSearches.take(6), key = { "recent_${it.query}" }) { hist ->
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .background(Brush.verticalGradient(listOf(palette.surfaceGradStart, palette.surfaceGradMid, palette.surfaceGradEnd)))
+                                        .border(1.dp, palette.cardBorder, RoundedCornerShape(50))
+                                        .clickable {
+                                            searchQuery = hist.query
+                                            viewModel.insertSearchHistory(hist.query)
+                                        }
+                                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Outlined.History, contentDescription = null, tint = palette.textMuted, modifier = Modifier.size(13.dp))
+                                        Spacer(modifier = Modifier.width(5.dp))
+                                        Text(hist.query, fontSize = 11.sp, color = palette.textPrimary, fontWeight = FontWeight.Medium)
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Delete",
+                                            tint = palette.textMuted,
+                                            modifier = Modifier
+                                                .size(12.dp)
+                                                .clickable { viewModel.deleteSearchHistory(hist.query) }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (suggestedSearches.isNotEmpty()) {
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 14.dp),
+                            horizontalArrangement = Arrangement.spacedBy(7.dp)
+                        ) {
+                            items(suggestedSearches.take(8), key = { "sug_$it" }) { term ->
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .background(palette.subtleSurface)
+                                        .border(0.8.dp, palette.cardBorder, RoundedCornerShape(50))
+                                        .clickable {
+                                            searchQuery = term
+                                            viewModel.insertSearchHistory(term)
+                                        }
+                                        .padding(horizontal = 11.dp, vertical = 5.dp)
+                                ) {
+                                    Text(term, fontSize = 10.5.sp, color = palette.textSecondary, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Results Header + Horizontal Filter Chips Row
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .width(2.2.dp)
+                                .height(15.dp)
+                                .background(FigmaAccentBorder)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = stringResource(R.string.search_results_title),
+                            style = TextStyle(
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = palette.textPrimary,
+                                letterSpacing = (-0.3).sp,
+                                platformStyle = PlatformTextStyle(includeFontPadding = false)
+                            )
+                        )
+                    }
+                    Text(
+                        text = stringResource(R.string.results_count, totalResultsCount),
+                        style = TextStyle(
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = palette.textMuted,
+                            fontFeatureSettings = "tnum",
+                            platformStyle = PlatformTextStyle(includeFontPadding = false)
+                        )
+                    )
+                }
+
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(filterTabs.size) { index ->
+                        val tab = filterTabs[index]
+                        val selected = selectedTab == index
+                        Box(
+                            modifier = Modifier
+                                .height(34.dp)
+                                .shadow(
+                                    elevation = if (selected) 6.dp else 4.dp,
+                                    shape = RoundedCornerShape(50),
+                                    ambientColor = if (selected) Color(0x40ED0032) else Color(0x1824203C),
+                                    spotColor = if (selected) Color(0x40ED0032) else Color(0x1824203C)
+                                )
+                                .clip(RoundedCornerShape(50))
+                                .then(
+                                    if (selected) {
+                                        Modifier.background(Brush.verticalGradient(listOf(FigmaCrimsonStart, FigmaCrimsonEnd)))
+                                    } else {
+                                        Modifier
+                                            .background(Brush.verticalGradient(listOf(palette.surfaceGradStart, palette.surfaceGradMid, palette.surfaceGradEnd)))
+                                            .border(1.dp, palette.cardBorder, RoundedCornerShape(50))
+                                    }
+                                )
+                                .clickable { selectedTab = index }
+                                .padding(horizontal = 14.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(5.dp)
+                            ) {
+                                if (tab.icon != null) {
+                                    Icon(
+                                        imageVector = tab.icon,
+                                        contentDescription = null,
+                                        tint = if (selected) Color.White else palette.textPrimary,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                                Text(
+                                    text = tab.label,
+                                    style = TextStyle(
+                                        fontSize = 11.5.sp,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
+                                        color = if (selected) Color.White else palette.textPrimary,
+                                        platformStyle = PlatformTextStyle(includeFontPadding = false)
+                                    ),
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (syncState.isLoading && products.isEmpty() && flyers.isEmpty()) {
+            item {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = FigmaCrimsonLink)
+                }
+            }
+        }
+
+        if (syncState.errorMessage != null && products.isEmpty()) {
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.errorContainer)
+                        .padding(14.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = syncState.errorMessage ?: "",
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            fontSize = 12.sp,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = { viewModel.refreshCatalog() }) {
+                            Text(stringResource(R.string.retry), color = FigmaCrimsonLink, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Best Deals Highlight + Product Comparison Items (All, Deals, Products tabs)
+        if (selectedTab == 0 || selectedTab == 1 || selectedTab == 3) {
+            item {
+                val sectionTitle = if (searchQuery.isBlank()) {
+                    stringResource(R.string.best_deals)
+                } else {
+                    stringResource(R.string.best_deals_for, searchQuery.trim())
+                }
+                SectionTitleRow(
+                    icon = {
+                        Box(
+                            modifier = Modifier
+                                .size(18.dp)
+                                .clip(RoundedCornerShape(5.dp))
+                                .background(FigmaCrimsonLink),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.LocalOffer,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(11.dp)
+                            )
+                        }
+                    },
+                    title = sectionTitle,
+                    actionText = if (selectedTab == 0) stringResource(R.string.view_all) else "",
+                    onAction = { selectedTab = 3 }
+                )
             }
 
             if (filteredProducts.isEmpty()) {
                 item {
-                    Surface(
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        shape = RoundedCornerShape(18.dp),
-                        color = Color.White,
-                        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                            .padding(horizontal = 14.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(Brush.verticalGradient(listOf(palette.surfaceGradStart, palette.surfaceGradMid, palette.surfaceGradEnd)))
+                            .border(1.dp, palette.cardBorder, RoundedCornerShape(18.dp))
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Column(
-                            modifier = Modifier.padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(Icons.Outlined.SearchOff, contentDescription = null, tint = Slate400, modifier = Modifier.size(36.dp))
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Outlined.SearchOff, contentDescription = null, tint = palette.textMuted, modifier = Modifier.size(34.dp))
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                "No matching offers found",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = Slate900
+                            Text(stringResource(R.string.no_search_results), fontWeight = FontWeight.Bold, color = palette.textPrimary)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            TextButton(onClick = {
+                                searchQuery = ""
+                                selectedCategory = null
+                                selectedRetailerId = null
+                                maxPrice = 5000f
+                                minDiscount = 0f
+                                selectedTab = 0
+                            }) {
+                                Text(stringResource(R.string.reset_filters), color = palette.crimsonLink, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            } else {
+                val shownProducts = if (selectedTab == 0) filteredProducts.take(4) else filteredProducts
+                items(shownProducts, key = { "prod_${it.id}" }) { product ->
+                    val similarGroup = products.filter { it.id == product.id || product.isIdenticalTo(it) }
+                    val minPriceInGroup = similarGroup.minOfOrNull { it.currentPrice } ?: product.currentPrice
+                    val isCheapest = product.currentPrice <= minPriceInGroup && similarGroup.size > 1
+                    val (nearestBranch, distKm) = viewModel.getNearestBranchAndDistance(product.retailerId)
+                    val store = viewModel.getStore(product.retailerId)
+                    SearchResultItem(
+                        product = product,
+                        store = store,
+                        isCheapest = isCheapest,
+                        distanceKm = distKm,
+                        nearestBranchName = nearestBranch?.name,
+                        onClick = { onNavigateToProduct(product.id) },
+                        onStoreClick = {
+                            if (store != null) onNavigateToRetailer(store.id)
+                        },
+                        onAddToList = {
+                            onAddToList(product)
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.added_to_list, product.name),
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    )
+                }
+
+                if (selectedTab == 3 && syncState.hasMoreProducts) {
+                    item {
+                        Box(modifier = Modifier.fillMaxWidth().padding(14.dp), contentAlignment = Alignment.Center) {
+                            OutlinedButton(onClick = { viewModel.loadMoreProducts() }) {
+                                Text("Load more deals", color = palette.crimsonLink)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4. Related Flyers Section (All & Flyers tabs)
+        if (selectedTab == 0 || selectedTab == 2) {
+            item {
+                SectionTitleRow(
+                    icon = {
+                        Box(
+                            modifier = Modifier
+                                .size(18.dp)
+                                .clip(RoundedCornerShape(5.dp))
+                                .background(FigmaCrimsonLink),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Description,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(11.dp)
                             )
-                            Text(
-                                "Try clearing filters or searching a different brand or pack size.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Slate500
+                        }
+                    },
+                    title = stringResource(R.string.related_flyers),
+                    actionText = if (selectedTab == 0) stringResource(R.string.view_all) else "",
+                    onAction = { selectedTab = 2 }
+                )
+            }
+
+            if (filteredFlyers.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(Brush.verticalGradient(listOf(palette.surfaceGradStart, palette.surfaceGradMid, palette.surfaceGradEnd)))
+                            .border(1.dp, palette.cardBorder, RoundedCornerShape(18.dp))
+                            .padding(20.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(stringResource(R.string.no_search_results), color = palette.textSecondary, fontSize = 12.sp)
+                    }
+                }
+            } else {
+                val shownFlyers = if (selectedTab == 0) filteredFlyers.take(2) else filteredFlyers
+                items(shownFlyers, key = { "flyer_${it.id}" }) { flyer ->
+                    SearchLiveFlyerRowCard(
+                        flyer = flyer,
+                        store = viewModel.getStore(flyer.retailerId),
+                        onClick = { onNavigateToFlyer(flyer.id) }
+                    )
+                }
+            }
+        }
+
+        // 5. Popular Stores Section (All & Stores tabs)
+        if (selectedTab == 0 || selectedTab == 4) {
+            item {
+                SectionTitleRow(
+                    icon = {
+                        Box(
+                            modifier = Modifier
+                                .size(18.dp)
+                                .clip(RoundedCornerShape(5.dp))
+                                .background(FigmaCrimsonLink),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Storefront,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(11.dp)
+                            )
+                        }
+                    },
+                    title = stringResource(R.string.popular_stores),
+                    actionText = if (selectedTab == 0) stringResource(R.string.view_all) else "",
+                    onAction = { selectedTab = 4 }
+                )
+            }
+
+            if (stores.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(Brush.verticalGradient(listOf(palette.surfaceGradStart, palette.surfaceGradMid, palette.surfaceGradEnd)))
+                            .border(1.dp, palette.cardBorder, RoundedCornerShape(18.dp))
+                            .padding(20.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(stringResource(R.string.no_search_results), color = palette.textSecondary, fontSize = 12.sp)
+                    }
+                }
+            } else if (selectedTab == 0) {
+                item {
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(stores, key = { "tile_${it.id}" }) { store ->
+                            StoreSquareTile(
+                                store = store,
+                                onClick = { onNavigateToRetailer(store.id) }
                             )
                         }
                     }
                 }
             } else {
-                items(filteredProducts) { product ->
-                    val identicals = filteredProducts.filter { it.isIdenticalTo(product) }
-                    val minPrice = identicals.minByOrNull { it.currentPrice }?.currentPrice ?: Double.MAX_VALUE
-                    val isCheapest = identicals.size > 1 && product.currentPrice <= minPrice
-
-                    val (nearestBranch, distanceKm) = branches.let { viewModel.getNearestBranchAndDistance(product.retailerId) }
-                    SearchResultItem(
-                        product = product,
-                        store = viewModel.getStore(product.retailerId),
-                        isCheapest = isCheapest,
-                        distanceKm = distanceKm,
-                        nearestBranchName = nearestBranch?.name,
-                        onAddToList = { onAddToList(product) },
-                        onClick = { onNavigateToProduct(product.id) },
-                        onStoreClick = { onNavigateToRetailer(product.retailerId) }
-                    )
-                }
-                if (syncState.hasMoreProducts) {
-                    item {
-                        Box(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            OutlinedButton(
-                                onClick = { viewModel.loadMoreProducts() },
-                                shape = RoundedCornerShape(12.dp)
+                items(stores, key = { "store_row_${it.id}" }) { store ->
+                    val dist = viewModel.getDistanceToStore(store.id)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp)
+                            .shadow(4.dp, RoundedCornerShape(16.dp), ambientColor = Color(0x1424203C), spotColor = Color(0x1424203C))
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Brush.verticalGradient(listOf(palette.surfaceGradStart, palette.surfaceGradMid, palette.surfaceGradEnd)))
+                            .border(1.dp, palette.cardBorder, RoundedCornerShape(16.dp))
+                            .clickable { onNavigateToRetailer(store.id) }
+                            .padding(12.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(Color.White),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Text("Load more offers (currently capped at ${syncState.productsPageLimit})")
+                                if (store.logoUrl.isNotBlank()) {
+                                    AsyncImage(
+                                        model = store.logoUrl,
+                                        contentDescription = store.name,
+                                        modifier = Modifier.fillMaxSize().padding(4.dp),
+                                        contentScale = ContentScale.Fit
+                                    )
+                                } else {
+                                    Text(store.name.take(2).uppercase(), fontWeight = FontWeight.Bold, color = FigmaTextPrimary)
+                                }
                             }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(store.name, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = palette.textPrimary)
+                                val distTxt = if (dist != null) " • %.1f km".format(dist) else ""
+                                Text(
+                                    text = "${store.emirates.ifBlank { localizedEmirate }}$distTxt",
+                                    fontSize = 10.5.sp,
+                                    color = palette.textMuted,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                contentDescription = null,
+                                tint = palette.crimsonLink,
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
                     }
                 }
             }
-
-            item { MissingItemBanner(searchQuery = searchQuery, onSaveSearch = { q -> if (q.isNotBlank()) viewModel.insertSearchHistory(q) }) }
-
-            item { Spacer(modifier = Modifier.height(24.dp)) }
         }
-    }
-}
 
-@Composable
-fun PopularSearchesRow(onSelect: (String) -> Unit) {
-    val items = listOf(
-        Triple("Milk", Icons.Outlined.LocalDrink, MockupBlueBg to Color(0xFF0284C7)),
-        Triple("Chicken", Icons.Outlined.Restaurant, MockupPeachBg to Color(0xFFEA580C)),
-        Triple("Detergent", Icons.Outlined.CleaningServices, MockupPurpleBg to Color(0xFF7C3AED)),
-        Triple("Banana", Icons.Outlined.Eco, MockupYellowContainer to Color(0xFFD97706)),
-        Triple("Eggs", Icons.Outlined.Egg, MockupMintBg to Color(0xFF16A34A))
-    )
-
-    Column(modifier = Modifier.padding(top = 4.dp)) {
-        Text(
-            text = "Suggested Searches",
-            modifier = Modifier.padding(horizontal = 16.dp),
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
-            color = Slate900
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            items(items) { (name, icon, colors) ->
-                val (bg, iconColor) = colors
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = bg,
-                    modifier = Modifier.clickable { onSelect(name) }
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
-                    ) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            tint = iconColor,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = name,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Slate800
-                        )
-                    }
-                }
+        // 6. Get Notified Banner (All tab — routes directly to NotificationSettings!)
+        if (selectedTab == 0) {
+            item {
+                GetNotifiedBannerCard(
+                    onEnableClick = onNavigateToNotificationSettings
+                )
             }
         }
     }
 }
 
 @Composable
-fun SearchHeader(
-    userLocation: String,
-    onNavigateToLocation: () -> Unit = {},
-    onNavigateToNotifications: () -> Unit = {}
+private fun SectionTitleRow(
+    icon: @Composable () -> Unit,
+    title: String,
+    actionText: String,
+    onAction: () -> Unit
 ) {
-    Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
+    val palette = LocalAppPalette.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f)
+        ) {
+            icon()
+            Spacer(modifier = Modifier.width(7.dp))
+            Text(
+                text = title,
+                style = TextStyle(
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = palette.textPrimary,
+                    letterSpacing = (-0.3).sp,
+                    platformStyle = PlatformTextStyle(includeFontPadding = false)
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        if (actionText.isNotEmpty()) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.clickable { onAction() }
+            ) {
+                Text(
+                    text = actionText,
+                    style = TextStyle(
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = palette.crimsonLink,
+                        platformStyle = PlatformTextStyle(includeFontPadding = false)
+                    )
+                )
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = palette.crimsonLink,
+                    modifier = Modifier.size(15.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchLiveFlyerRowCard(
+    flyer: FlyerEntity,
+    store: RetailerEntity?,
+    onClick: () -> Unit
+) {
+    val palette = LocalAppPalette.current
+    val validText = if (flyer.validTo > 0) {
+        val fmt = SimpleDateFormat("dd MMM", Locale.getDefault())
+        stringResource(R.string.valid_till, fmt.format(Date(flyer.validTo)))
+    } else "${flyer.pages} pgs"
+
+    val daysLeft = if (flyer.validTo > System.currentTimeMillis()) {
+        val d = TimeUnit.MILLISECONDS.toDays(flyer.validTo - System.currentTimeMillis()).toInt().coerceAtLeast(1)
+        if (d == 1) stringResource(R.string.day_left, 1) else stringResource(R.string.days_left, d)
+    } else "ACTIVE"
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp)
+            .shadow(4.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x1424203C), spotColor = Color(0x1424203C))
+            .clip(RoundedCornerShape(18.dp))
+            .background(Brush.verticalGradient(listOf(palette.surfaceGradStart, palette.surfaceGradMid, palette.surfaceGradEnd)))
+            .border(1.dp, palette.cardBorder, RoundedCornerShape(18.dp))
+            .clickable { onClick() }
+            .padding(10.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .width(86.dp)
+                    .height(58.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color.White),
+                contentAlignment = Alignment.Center
+            ) {
+                AsyncImage(
+                    model = flyer.imageUrl.ifBlank { store?.logoUrl ?: "" },
+                    contentDescription = flyer.title,
+                    modifier = Modifier.fillMaxSize().padding(6.dp),
+                    contentScale = ContentScale.Fit
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = store?.name ?: flyer.title,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = palette.textPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(validText, fontSize = 10.sp, color = palette.textMuted)
+                Spacer(modifier = Modifier.height(5.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(palette.crimsonPillBg)
+                        .padding(horizontal = 8.dp, vertical = 2.5.dp)
+                ) {
+                    Text(daysLeft, fontSize = 8.sp, fontWeight = FontWeight.ExtraBold, color = palette.crimsonLink)
+                }
+            }
+            Box(
+                modifier = Modifier.size(28.dp).clip(CircleShape).background(palette.crimsonPillBg),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = palette.crimsonLink,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StoreSquareTile(
+    store: RetailerEntity,
+    onClick: () -> Unit
+) {
+    val palette = LocalAppPalette.current
+    Column(
+        modifier = Modifier.width(68.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .shadow(4.dp, RoundedCornerShape(16.dp), ambientColor = Color(0x1424203C), spotColor = Color(0x1424203C))
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color.White)
+                .border(1.dp, palette.cardBorder, RoundedCornerShape(16.dp))
+                .clickable { onClick() }
+                .padding(8.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            if (store.logoUrl.isNotBlank()) {
+                AsyncImage(
+                    model = store.logoUrl,
+                    contentDescription = store.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
+            } else {
+                Text(
+                    text = store.name.take(3).uppercase(),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = FigmaTextPrimary
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(5.dp))
+        Text(
+            text = store.name.substringBefore(" Hypermarket").substringBefore(" Supermarket"),
+            style = TextStyle(
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = palette.textPrimary,
+                platformStyle = PlatformTextStyle(includeFontPadding = false)
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun GetNotifiedBannerCard(onEnableClick: () -> Unit) {
+    val palette = LocalAppPalette.current
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp)
+            .shadow(5.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x1624203C), spotColor = Color(0x1624203C))
+            .clip(RoundedCornerShape(20.dp))
+            .background(
+                if (palette.isDark) {
+                    Brush.horizontalGradient(listOf(Color(0xFF281722), Color(0xFF331B29)))
+                } else {
+                    Brush.horizontalGradient(listOf(Color(0xFFFEF4F8), Color(0xFFFDE6EF), Color(0xFFFBD5E3)))
+                }
+            )
+            .border(1.dp, palette.cardBorder, RoundedCornerShape(20.dp))
+            .padding(horizontal = 16.dp, vertical = 14.dp)
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
+            Icon(
+                imageVector = Icons.Filled.Notifications,
+                contentDescription = null,
+                tint = FigmaCrimsonLink,
+                modifier = Modifier.size(34.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Search",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = Slate900
+                    text = stringResource(R.string.get_notified),
+                    style = TextStyle(
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = palette.textPrimary,
+                        platformStyle = PlatformTextStyle(includeFontPadding = false)
+                    )
                 )
+                Spacer(modifier = Modifier.height(3.dp))
                 Text(
-                    text = "Find products, brands, stores and more",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Slate500
+                    text = stringResource(R.string.get_notified_desc),
+                    style = TextStyle(
+                        fontSize = 10.sp,
+                        lineHeight = 13.sp,
+                        color = palette.textSecondary,
+                        platformStyle = PlatformTextStyle(includeFontPadding = false)
+                    )
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = Color.White,
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                    onClick = onNavigateToLocation
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Outlined.LocationOn, 
-                            contentDescription = null, 
-                            modifier = Modifier.size(16.dp),
-                            tint = Slate600
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            userLocation, 
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Slate800
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(
-                            Icons.Default.KeyboardArrowDown,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = Slate500
-                        )
-                    }
-                }
-                Surface(
-                    shape = CircleShape,
-                    color = Color.White,
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                    modifier = Modifier.size(40.dp),
-                    onClick = onNavigateToNotifications
-                ) {
-                    Icon(
-                        Icons.Outlined.Notifications, 
-                        contentDescription = "Notifications", 
-                        modifier = Modifier.padding(10.dp),
-                        tint = Slate800
-                    )
-                }
+            Spacer(modifier = Modifier.width(10.dp))
+            Box(
+                modifier = Modifier
+                    .height(34.dp)
+                    .shadow(6.dp, RoundedCornerShape(50), ambientColor = Color(0x45ED0032), spotColor = Color(0x45ED0032))
+                    .clip(RoundedCornerShape(50))
+                    .background(Brush.verticalGradient(listOf(FigmaCrimsonStart, FigmaCrimsonEnd)))
+                    .clickable { onEnableClick() }
+                    .padding(horizontal = 14.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = stringResource(R.string.enable_notifications),
+                    style = TextStyle(
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        platformStyle = PlatformTextStyle(includeFontPadding = false)
+                    ),
+                    maxLines = 1
+                )
             }
         }
     }
@@ -595,222 +1284,157 @@ fun SearchResultItem(
     onStoreClick: () -> Unit = {},
     onAddToList: () -> Unit
 ) {
-    val unitPriceText = com.example.domain.basket.OfferEligibility.computeUnitPriceText(product)
+    val palette = LocalAppPalette.current
+    val currency = stringResource(R.string.currency_aed)
     val comparisonOldPrice = product.oldPrice
     val hasValidComparisonPrice = comparisonOldPrice != null && comparisonOldPrice > product.currentPrice
-    val savings = if (comparisonOldPrice != null && comparisonOldPrice > product.currentPrice) {
-        comparisonOldPrice - product.currentPrice
-    } else 0.0
     val savedPercentage = if (comparisonOldPrice != null && comparisonOldPrice > product.currentPrice && comparisonOldPrice > 0.0) {
-        ((savings / comparisonOldPrice) * 100).toInt()
+        (((comparisonOldPrice - product.currentPrice) / comparisonOldPrice) * 100).toInt()
     } else 0
+    val unitPriceText = OfferEligibility.computeUnitPriceText(product)
 
-    Surface(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(18.dp),
-        color = Color.White,
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-        onClick = onClick
+            .padding(horizontal = 14.dp)
+            .shadow(4.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x1424203C), spotColor = Color(0x1424203C))
+            .clip(RoundedCornerShape(18.dp))
+            .background(Brush.verticalGradient(listOf(palette.surfaceGradStart, palette.surfaceGradMid, palette.surfaceGradEnd)))
+            .border(1.dp, palette.cardBorder, RoundedCornerShape(18.dp))
+            .clickable { onClick() }
+            .padding(12.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = Color.White,
-                modifier = Modifier.size(80.dp)
+            Box(
+                modifier = Modifier
+                    .size(78.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(palette.subtleSurface),
+                contentAlignment = Alignment.Center
             ) {
                 AsyncImage(
                     model = product.imageUrl.ifBlank { "file:///android_asset/products/default_deal.jpg" },
                     error = coil.compose.rememberAsyncImagePainter("file:///android_asset/products/default_deal.jpg"),
                     contentDescription = product.name,
                     contentScale = ContentScale.Fit,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(4.dp)
+                    modifier = Modifier.fillMaxSize().padding(4.dp)
                 )
+                if (savedPercentage > 0) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .clip(RoundedCornerShape(50))
+                            .background(FigmaDiscountGreen)
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "-$savedPercentage%",
+                            style = TextStyle(
+                                color = Color.White,
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                platformStyle = PlatformTextStyle(includeFontPadding = false)
+                            )
+                        )
+                    }
+                }
             }
-            Spacer(modifier = Modifier.width(12.dp))
+
+            Spacer(modifier = Modifier.width(10.dp))
+
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = product.name,
                     fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.bodyMedium,
+                    fontSize = 13.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    color = Slate900
+                    color = palette.textPrimary
                 )
                 Text(
-                    text = product.category.ifBlank { "General" },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Slate400
+                    text = buildString {
+                        append(product.category.ifBlank { "Groceries" })
+                        if (unitPriceText != null) append(" • $unitPriceText")
+                    },
+                    fontSize = 10.sp,
+                    color = palette.textMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(6.dp))
-                val sourceBadgeText = when (product.verificationLabel) {
-                    "merchant_confirmed" -> "Merchant Confirmed"
-                    "admin_reviewed" -> "Reviewed Offer"
-                    else -> "Flyer Listing"
-                }
-                Surface(
-                    color = Color(0xFFF1F5F9),
-                    shape = RoundedCornerShape(6.dp)
-                ) {
+                Spacer(modifier = Modifier.height(5.dp))
+                Row(verticalAlignment = Alignment.Bottom) {
                     Text(
-                        text = sourceBadgeText,
-                        color = Slate600,
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        text = "$currency %.2f".format(product.currentPrice),
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 13.sp,
+                        color = palette.crimsonLink
                     )
+                    if (hasValidComparisonPrice) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "$currency %.2f".format(product.oldPrice),
+                            fontSize = 10.sp,
+                            color = palette.textMuted,
+                            textDecoration = TextDecoration.LineThrough
+                        )
+                    }
+                    if (isCheapest) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(Color(0xFFDCFCE7))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.sort_cheapest),
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = FigmaDiscountGreen
+                            )
+                        }
+                    }
                 }
-                if (unitPriceText != null) {
-                    Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(5.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(if (palette.isDark) Color(0xFF173521) else Color(0xFFE8F5EA))
+                        .clickable { onStoreClick() }
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                    val branchPart = if (!nearestBranchName.isNullOrBlank()) " (${nearestBranchName.substringAfter("-").trim()})" else ""
+                    val distLabel = if (distanceKm != null) " • %.1f km".format(distanceKm) else ""
                     Text(
-                        text = unitPriceText,
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = Slate500,
+                        text = "${store?.name ?: "Verified Store"}$branchPart$distLabel",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = FigmaDiscountGreen,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
             }
-            Spacer(modifier = Modifier.width(8.dp))
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.Center
-            ) {
-                if (isCheapest) {
-                    Surface(
-                        color = Color(0xFFDCFCE7),
-                        shape = RoundedCornerShape(6.dp)
-                    ) {
-                        Text(
-                            text = "Cheapest",
-                            color = Color(0xFF15803D),
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(2.dp))
-                }
-                Text(
-                    text = "AED %.2f".format(product.currentPrice),
-                    fontWeight = FontWeight.ExtraBold,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = if (isCheapest) Color(0xFFDC2626) else Slate900
-                )
-                if (hasValidComparisonPrice) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "AED %.2f".format(product.oldPrice),
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                            color = Slate400,
-                            textDecoration = TextDecoration.LineThrough
-                        )
-                        if (savedPercentage > 0) {
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "-$savedPercentage%",
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                color = Color(0xFFDC2626),
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    AsyncImage(
-                        model = store?.logoUrl ?: "file:///android_asset/logos/default_logo.png",
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        contentScale = ContentScale.Fit
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            text = store?.name ?: "Unknown Retailer",
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                            color = Slate600,
-                            maxLines = 1
-                        )
-                        Text(
-                            text = if (distanceKm != null) "%.1f km straight-line".format(distanceKm) else "Distance unavailable",
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                            color = Slate400
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
 
-@Composable
-fun MissingItemBanner(searchQuery: String = "", onSaveSearch: (String) -> Unit = {}) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        shape = RoundedCornerShape(20.dp),
-        color = Color(0xFFF3E8FF),
-        border = BorderStroke(1.dp, Color(0xFFDDD6FE))
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp), 
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                shape = CircleShape, 
-                color = Color.White, 
-                modifier = Modifier.size(44.dp)
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(palette.crimsonPillBg)
+                    .clickable { onAddToList() },
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    Icons.Outlined.LocalOffer, 
-                    contentDescription = null, 
-                    modifier = Modifier.padding(11.dp), 
-                    tint = Color(0xFF6D28D9)
+                    imageVector = Icons.Outlined.ShoppingCart,
+                    contentDescription = stringResource(R.string.add_btn),
+                    tint = palette.crimsonLink,
+                    modifier = Modifier.size(17.dp)
                 )
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    "Can't find what you're looking for?", 
-                    fontWeight = FontWeight.Bold, 
-                    style = MaterialTheme.typography.titleSmall,
-                    color = Slate900
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    "Save this search term to re-check quickly when new flyers are published.", 
-                    style = MaterialTheme.typography.labelSmall, 
-                    color = Slate600
-                )
-            }
-            Spacer(modifier = Modifier.width(10.dp))
-            val context = androidx.compose.ui.platform.LocalContext.current
-            Button(
-                onClick = {
-                    if (searchQuery.isNotBlank()) {
-                        onSaveSearch(searchQuery)
-                        android.widget.Toast.makeText(context, "Saved \"$searchQuery\" to recent searches", android.widget.Toast.LENGTH_SHORT).show()
-                    } else {
-                        android.widget.Toast.makeText(context, "Type a product name above to save a search", android.widget.Toast.LENGTH_SHORT).show()
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
-                shape = RoundedCornerShape(20.dp),
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
-            ) {
-                Text("Save Search", color = Color.White, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.width(4.dp))
-                Icon(Icons.Outlined.Notifications, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.White)
             }
         }
     }

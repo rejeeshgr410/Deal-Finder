@@ -58,11 +58,12 @@ object CatalogQueryPolicy {
     fun filterEligibleProducts(
         products: List<ProductEntity>,
         allowedStoreIds: Set<String>,
-        nowMs: Long = System.currentTimeMillis()
+        nowMs: Long = System.currentTimeMillis(),
+        includeDemo: Boolean = false
     ): List<ProductEntity> {
         return products.filter { product ->
             product.retailerId in allowedStoreIds &&
-                product.isCurrentlyEligible(nowMs = nowMs)
+                product.isCurrentlyEligible(nowMs = nowMs, includeDemo = includeDemo)
         }
     }
 
@@ -92,5 +93,29 @@ object CatalogQueryPolicy {
     fun nextProductsPageLimit(currentLimit: Int): Int {
         return (currentLimit + FirestoreDealFinderDao.DEFAULT_PRODUCTS_PAGE_SIZE)
             .coerceAtMost(FirestoreDealFinderDao.MAX_PRODUCTS_PAGE_SIZE)
+    }
+
+    private val NESTLE_SHOWCASE_KEYWORDS = listOf(
+        "nestle", "nestlé", "nescafe", "nescafé", "kitkat", "maggi",
+        "purina", "friskies", "pellegrino", "smarties", "pure life"
+    )
+
+    /** Identifies featured Nestlé demo showcase products so they surface first across product feeds. */
+    fun isNestleShowcaseProduct(product: ProductEntity): Boolean {
+        if (!product.isDemo) return false
+        val brandNorm = product.brand.lowercase()
+        val nameNorm = product.name.lowercase()
+        return NESTLE_SHOWCASE_KEYWORDS.any { kw ->
+            brandNorm.contains(kw) ||
+                nameNorm.contains(kw) ||
+                product.searchKeywords.any { it.equals(kw, ignoreCase = true) }
+        }
+    }
+
+    /** Orders featured Nestlé demo products ahead of other items while preserving relative order inside each group. */
+    fun prioritizeNestleShowcase(products: List<ProductEntity>): List<ProductEntity> {
+        if (products.none { isNestleShowcaseProduct(it) }) return products
+        val (featured, rest) = products.partition { isNestleShowcaseProduct(it) }
+        return featured + rest
     }
 }

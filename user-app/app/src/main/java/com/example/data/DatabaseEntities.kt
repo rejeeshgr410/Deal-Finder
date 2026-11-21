@@ -218,4 +218,35 @@ data class LoyaltyCardEntity(
     val createdAt: Long = System.currentTimeMillis()
 )
 
+data class ClearanceBundleItem(
+    val name: String = "",
+    val quantity: Int = 1,
+    val retailPrice: Double = 0.0,
+    val imageUrl: String = ""
+)
+
+data class ClearanceBundle(
+    val id: String = "",
+    val retailerId: String = "",
+    val branchName: String = "",
+    val title: String = "",
+    val category: String = "Groceries",
+    val items: List<ClearanceBundleItem> = emptyList(),
+    val originalTotalPrice: Double = 0.0,
+    val bundleOfferPrice: Double = 0.0,
+    val expiryDateMillis: Long = 0L,
+    val stockRemaining: Int = 0,
+    val isDemo: Boolean = false
+) {
+    /** Computes the percentage saved relative to [originalTotalPrice], capped at 90% per clearance policy. */
+    fun discountPercentage(): Int {
+        if (originalTotalPrice <= 0.0 || bundleOfferPrice >= originalTotalPrice) return 0
+        return Math.round(((originalTotalPrice - bundleOfferPrice) / originalTotalPrice) * 100.0)
+            .toInt()
+            .coerceIn(0, 90)
+    }
+
+    fun savingsAmount(): Double = (originalTotalPrice - bundleOfferPrice).coerceAtLeast(0.0)
+}
+
 

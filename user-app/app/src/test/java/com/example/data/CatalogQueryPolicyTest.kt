@@ -72,4 +72,42 @@ class CatalogQueryPolicyTest {
             CatalogQueryPolicy.nextProductsPageLimit(FirestoreDealFinderDao.MAX_PRODUCTS_PAGE_SIZE)
         )
     }
+
+    @Test
+    fun `prioritizeNestleShowcase puts demo Nestle products first while preserving non-demo order`() {
+        val otherLive = ProductEntity(id = "live_1", name = "Banana 1kg", brand = "Fresh", isDemo = false)
+        val otherDemo = ProductEntity(id = "demo_other", name = "Noor Oil", brand = "Noor", isDemo = true)
+        val nescafeDemo = ProductEntity(id = "demo_nescafe", name = "Nescafé Gold 200g", brand = "Nescafé", isDemo = true)
+        val kitkatDemo = ProductEntity(id = "demo_kitkat", name = "KitKat 4-Finger", brand = "Nestlé", isDemo = true)
+        val liveNestle = ProductEntity(id = "live_nestle", name = "Nestlé Milk", brand = "Nestlé", isDemo = false)
+
+        val ordered = CatalogQueryPolicy.prioritizeNestleShowcase(
+            listOf(otherLive, otherDemo, nescafeDemo, liveNestle, kitkatDemo)
+        )
+
+        assertEquals(
+            listOf("demo_nescafe", "demo_kitkat", "live_1", "demo_other", "live_nestle"),
+            ordered.map { it.id }
+        )
+    }
+
+    @Test
+    fun `clearance bundle computes discount up to 90 percent and savings accurately`() {
+        val bundle90 = ClearanceBundle(
+            id = "b1",
+            title = "KitKat Combo",
+            originalTotalPrice = 88.0,
+            bundleOfferPrice = 8.80
+        )
+        assertEquals(90, bundle90.discountPercentage())
+        assertEquals(79.20, bundle90.savingsAmount(), 0.01)
+
+        val cappedBundle = ClearanceBundle(
+            id = "b2",
+            title = "Deep Clearance",
+            originalTotalPrice = 100.0,
+            bundleOfferPrice = 5.0
+        )
+        assertEquals(90, cappedBundle.discountPercentage())
+    }
 }

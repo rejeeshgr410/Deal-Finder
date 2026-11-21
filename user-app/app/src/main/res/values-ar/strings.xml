@@ -1,30 +1,170 @@
 <resources>
     <string name="app_name">ديل فايندر الإمارات</string>
+    <string name="splash_tagline">اكتشف. قارن. وفّر.</string>
 
     <!-- Navigation -->
     <string name="nav_home">الرئيسية</string>
-    <string name="nav_search">البحث والمقارنة</string>
-    <string name="nav_lists">قوائم التسوق</string>
-    <string name="nav_deals">العروض والكتالوجات</string>
+    <string name="nav_search">بحث</string>
+    <string name="nav_wallet">المحفظة</string>
+    <string name="nav_clearance">التصفية</string>
+    <string name="nav_lists">القوائم</string>
+    <string name="nav_deals">العروض</string>
+    <string name="nav_coupons">الكوبونات</string>
     <string name="nav_account">حسابي</string>
     <string name="nav_loyalty">بطاقات الولاء</string>
 
+    <!-- Emirates -->
+    <string name="emirate_dubai">دبي</string>
+    <string name="emirate_abu_dhabi">أبوظبي</string>
+    <string name="emirate_sharjah">الشارقة</string>
+    <string name="emirate_ajman">عجمان</string>
+    <string name="emirate_rak">رأس الخيمة</string>
+    <string name="emirate_fujairah">الفجيرة</string>
+    <string name="emirate_uaq">أم القيوين</string>
+
     <!-- Home Screen -->
+    <string name="hi_user">مرحباً، %1$s</string>
+    <string name="hi_guest">أهلاً بك</string>
+    <string name="home_subtitle">اكتشف أفضل العروض بالقرب منك</string>
+    <string name="search_placeholder">ابحث عن المنتجات أو العلامات أو المتاجر</string>
+    <string name="action_nearby_deals">عروض\nقريبة</string>
+    <string name="action_all_flyers">الكتالوجات</string>
+    <string name="action_price_compare">مقارنة\nالأسعار</string>
+    <string name="action_smart_list">قائمة ذكية</string>
+    <string name="action_coupons">الكوبونات</string>
+    <string name="nearby_flyers">كتالوجات قريبة</string>
+    <string name="trending_products">المنتجات الرائجة</string>
+    <string name="within_10km">ضمن 10 كم</string>
     <string name="featured_flyers">أحدث كتالوجات وعروض الإمارات</string>
     <string name="view_all">عرض الكل</string>
-    <string name="categories">الأقسام والتصنيفات</string>
-    <string name="nearby_stores">المتاجر القريبة</string>
-    <string name="trending_deals">العروض الأكثر رواجاً</string>
-    <string name="save_up_to">وفّر حتى</string>
-    <string name="search_placeholder">ابحث عن المنتجات، الأجهزة، الكتالوجات…</string>
+    <string name="top_deals_today">أفضل عروض اليوم</string>
+    <string name="smart_savings_title">التوفير الذكي</string>
+    <string name="smart_savings_desc">قارن الأسعار، أنشئ قائمتك\nووفّر أكثر كل يوم.</string>
+    <string name="create_smart_list">إنشاء قائمة ذكية</string>
+    <string name="open_basket_optimizer">تحسين سلة التسوق</string>
+    <string name="open_loyalty_wallet">مسح بطاقات الولاء</string>
+    <string name="upcoming_promotions">عروض وتخفيضات قادمة</string>
+    <string name="days_left">متبقي %1$d أيام</string>
+    <string name="day_left">متبقي %1$d يوم</string>
+    <string name="valid_till">صالح حتى %1$s</string>
+    <string name="offline_cached_title">وضع عدم الاتصال — بيانات محفوظة</string>
+    <string name="stale_cached_title">بيانات محفوظة — قد تكون قديمة</string>
+    <string name="sync_error_title">تعذر مزامنة البيانات</string>
+    <string name="retry">إعادة المحاولة</string>
+    <string name="no_catalog_data">لا توجد عروض متاحة حالياً.</string>
+
+    <!-- Search & Compare -->
+    <string name="search_results_title">نتائج البحث</string>
+    <string name="results_count">%1$d نتيجة</string>
+    <string name="tab_all">الكل</string>
+    <string name="tab_deals">العروض</string>
+    <string name="tab_flyers">الكتالوجات</string>
+    <string name="tab_products">المنتجات</string>
+    <string name="tab_stores">المتاجر</string>
+    <string name="best_deals">أفضل العروض</string>
+    <string name="best_deals_for">أفضل العروض لـ “%1$s”</string>
+    <string name="related_flyers">كتالوجات ذات صلة</string>
+    <string name="popular_stores">أشهر المتاجر</string>
+    <string name="recent_searches">عمليات البحث الأخيرة</string>
+    <string name="trending_searches">الأكثر بحثاً في الإمارات</string>
+    <string name="filter_and_sort">تصفية وترتيب</string>
+    <string name="sort_by">الترتيب حسب</string>
+    <string name="sort_relevance">الأكثر صلة</string>
+    <string name="sort_cheapest">الأقل سعراً</string>
+    <string name="sort_nearest">الأقرب</string>
+    <string name="sort_discount">أكبر خصم</string>
+    <string name="filter_category">التصنيف</string>
+    <string name="filter_store">المتجر</string>
+    <string name="all_stores">كل المتاجر</string>
+    <string name="max_price">الحد الأقصى للسعر</string>
+    <string name="min_discount">أقل خصم</string>
+    <string name="any">الكل</string>
+    <string name="apply_filters">تطبيق التصفية</string>
+    <string name="reset_filters">إعادة تعيين</string>
+    <string name="get_notified">ابقَ على اطلاع</string>
+    <string name="get_notified_desc">كن أول من يعلم بأحدث العروض والتخفيضات.</string>
+    <string name="enable_notifications">إدارة التنبيهات</string>
+    <string name="added_to_list">تمت إضافة %1$s إلى القائمة الذكية</string>
+    <string name="no_search_results">لم يتم العثور على نتائج مطابقة</string>
 
     <!-- Loyalty Wallet -->
-    <string name="loyalty_wallet_title">بطاقات الولاء</string>
-    <string name="loyalty_wallet_subtitle">الباركود الرقمي لعضوية المتاجر عند الكاشير</string>
+    <string name="loyalty_wallet_title">محفظتي</string>
+    <string name="loyalty_wallet_subtitle">جميع بطاقات مكافآتك في مكان واحد</string>
+    <string name="add_card">إضافة بطاقة</string>
     <string name="add_loyalty_card">إضافة بطاقة ولاء</string>
-    <string name="tap_to_scan">اضغط على البطاقة لمسح الباركود</string>
+    <string name="cards_label">البطاقات</string>
+    <string name="points_label">النقاط</string>
+    <string name="ready_to_scan">جاهزة\nللمسح</string>
+    <string name="my_loyalty_cards">بطاقات الولاء الخاصة بي</string>
+    <string name="scan_at_checkout">امسح عند الكاشير</string>
+    <string name="open_card_to_scan">افتح البطاقة لمسح الباركود عند الدفع</string>
+    <string name="add_card_to_scan">أضف بطاقة ولاء لعرض الباركود عند الكاشير</string>
+    <string name="explore_rewards">اكتشف المكافآت</string>
+    <string name="explore_rewards_desc">أضف بطاقات متاجرك المفضلة</string>
+    <string name="add_more">المزيد</string>
     <string name="empty_wallet_title">لا توجد بطاقات ولاء بعد</string>
-    <string name="empty_wallet_desc">أضف بطاقة كارفور ماي كلوب، لولو هابينس، أو نستو إنعام لجمع النقاط دون الحاجة لحمل البطاقات البلاستيكية.</string>
+    <string name="empty_wallet_desc">أضف بطاقة كارفور شير، لولو هابينس، أو نستو إنعام للمسح عند الدفع.</string>
+
+    <!-- Coupons -->
+    <string name="coupons_title">الكوبونات</string>
+    <string name="coupons_subtitle">وفّر أكثر مع أكواد الخصم الحصرية</string>
+    <string name="search_coupons_placeholder">ابحث عن المتاجر أو أكواد الخصم</string>
+    <string name="featured_coupons">كوبونات مميزة</string>
+    <string name="saved_coupons">المحفوظة</string>
+    <string name="more_store_coupons">المزيد من أكواد المتاجر</string>
+    <string name="copy">نسخ</string>
+    <string name="copied_upper">تم النسخ</string>
+    <string name="copied">تم النسخ إلى الحافظة</string>
+    <string name="coupon_banner_title">صفقتك القادمة على بُعد لمسة واحدة</string>
+    <string name="coupon_banner_subtitle">انسخ الكود واستخدمه عند إتمام الشراء.</string>
+    <string name="no_coupons_match">لا توجد كوبونات مطابقة</string>
+
+    <!-- Clearance -->
+    <string name="clearance_title">التصفية</string>
+    <string name="clearance_subtitle">باقات قريبة الانتهاء • خصم حتى 90%</string>
+    <string name="clearance_banner_title">تصفية باقات المنتجات قريبة الانتهاء</string>
+    <string name="clearance_banner_subtitle">وفّر حتى 90% من إجمالي السعر الأصلي على باقات المتاجر المختارة.</string>
+    <string name="clearance_search_placeholder">ابحث عن باقات التصفية أو منتجات نستله</string>
+    <string name="expires_on">ينتهي في %1$s</string>
+    <string name="you_save_amount">وفّر %1$s</string>
+    <string name="add_combo">أضف الباقة</string>
+    <string name="bundle_items_count">%1$d أصناف في الباقة</string>
+    <string name="combo_offer_label">سعر الباقة</string>
+    <string name="retail_total_label">السعر الأصلي</string>
+    <string name="no_clearance_match">لا توجد باقات تصفية مطابقة</string>
+
+    <!-- Account -->
+    <string name="account_title">حسابي</string>
+    <string name="account_subtitle">الملف الشخصي والمكافآت والتفضيلات</string>
+    <string name="guest_shopper">متسوق زائر</string>
+    <string name="guest_signin_hint">سجّل الدخول لمزامنة القوائم والتنبيهات والبطاقات</string>
+    <string name="sign_in">تسجيل الدخول</string>
+    <string name="sign_in_or_create">تسجيل الدخول أو إنشاء حساب</string>
+    <string name="sign_out">تسجيل الخروج</string>
+    <string name="member_badge">عضو ديل فايندر</string>
+    <string name="guest_badge">وضع الزائر</string>
+    <string name="quick_tools">أدوات سريعة</string>
+    <string name="my_activity">نشاطي</string>
+    <string name="saved_followed_stores">المتاجر المحفوظة والمتابعة</string>
+    <string name="no_followed_stores">لا توجد متاجر متابعة بعد. اضغط على القلب لمتابعة أي متجر.</string>
+    <string name="preferences_support">التفضيلات والدعم</string>
+    <string name="notification_preferences">تفضيلات الإشعارات</string>
+    <string name="notification_preferences_desc">إدارة تنبيهات العروض وإلغاء الاشتراك</string>
+    <string name="emirate_region">الإمارة والمنطقة</string>
+    <string name="emirate_region_desc">موقع الكتالوجات والعروض القريبة</string>
+    <string name="language">اللغة</string>
+    <string name="language_desc">لغة التطبيق واتجاه الواجهة</string>
+    <string name="english">English</string>
+    <string name="arabic">العربية</string>
+    <string name="appearance">المظهر</string>
+    <string name="appearance_desc">فاتح، داكن أو حسب النظام</string>
+    <string name="demo_mode">بيانات العرض التجريبي</string>
+    <string name="demo_mode_desc">عرض منتجات وكتالوجات وعلامات تجارية تجريبية</string>
+    <string name="help_support">المساعدة والدعم</string>
+    <string name="help_support_desc">الأسئلة الشائعة، الدعم ومعلومات التطبيق</string>
+    <string name="delete_account_data">حذف بيانات الحساب</string>
+    <string name="delete_account_data_desc">مسح البيانات المحلية وإلغاء الإشعارات والخروج</string>
+    <string name="footer_tagline">ديل فايندر الإمارات • جميع الأسعار بـ %1$s</string>
 
     <!-- Basket Optimizer & Multi-Store Comparison -->
     <string name="basket_optimizer_title">مقارنة وتوفير سلة التسوق</string>
@@ -39,27 +179,76 @@
     <string name="currency_aed">درهم</string>
 
     <!-- Shopping List -->
+    <string name="smart_list_title">القوائم الذكية</string>
+    <string name="smart_list_subtitle">أنشئ قائمتك واكتشف المتجر الأوفر</string>
     <string name="my_lists">قوائمي</string>
     <string name="new_list">قائمة جديدة</string>
     <string name="share_list">مشاركة القائمة</string>
     <string name="budget_limit">حد الميزانية الشهرية</string>
     <string name="empty_list">قائمة التسوق فارغة</string>
+    <string name="add_item_placeholder">أضف صنفاً (مثل: حليب، أرز، موز)</string>
+    <string name="add_btn">إضافة</string>
 
-    <!-- Settings & Profile -->
-    <string name="settings">الإعدادات</string>
-    <string name="language">اللغة / Language</string>
-    <string name="english">English</string>
-    <string name="arabic">العربية</string>
-    <string name="theme">المظهر</string>
-    <string name="notifications">التنبيهات والإشعارات</string>
-    <string name="location">الموقع والإمارة</string>
-    <string name="backup_restore">النسخ الاحتياطي واستعادة البيانات</string>
-    <string name="logout">تسجيل الخروج</string>
+    <!-- Auth & Secondary -->
+    <string name="continue_as_guest">المتابعة كزائر</string>
+    <string name="remember_me">تذكرني</string>
+    <string name="location">الموقع</string>
+    <string name="notifications">الإشعارات</string>
+    <string name="nearby_stores">المتاجر القريبة</string>
+    <string name="welcome_back">مرحباً بعودتك</string>
+    <string name="create_account">إنشاء حساب جديد</string>
+    <string name="reset_password">إعادة تعيين كلمة المرور</string>
+    <string name="auth_login_subtitle">سجّل الدخول لمزامنة عروضك المفضلة وقوائمك الذكية وبطاقات الولاء.</string>
+    <string name="auth_signup_subtitle">انضم إلى ديل فايندر لمقارنة الأسعار ومتابعة الكتالوجات في الإمارات.</string>
+    <string name="auth_reset_subtitle">أدخل بريدك الإلكتروني المسجل لاستلام رابط إعادة تعيين كلمة المرور.</string>
+    <string name="full_name">الاسم الكامل</string>
+    <string name="email_address">البريد الإلكتروني</string>
+    <string name="password">كلمة المرور</string>
+    <string name="forgot_password">نسيت كلمة المرور؟</string>
+    <string name="send_reset_link">إرسال رابط الاستعادة</string>
+    <string name="log_in">تسجيل الدخول</string>
+    <string name="create_account_btn">إنشاء الحساب</string>
+    <string name="or_divider">أو</string>
+    <string name="continue_with_google">المتابعة عبر Google</string>
+    <string name="no_account">ليس لديك حساب؟</string>
+    <string name="have_account">لديك حساب بالفعل؟</string>
+    <string name="sign_up">سجّل الآن</string>
+    <string name="back_to_login">العودة لتسجيل الدخول</string>
+    <string name="password_reset_sent_msg">تم إرسال رابط إعادة تعيين كلمة المرور إلى %1$s. يرجى التحقق من بريدك الوارد.</string>
+    <string name="notifications_title">الإشعارات</string>
+    <string name="no_notifications">لا توجد إشعارات بعد</string>
+    <string name="notifications_empty_desc">سنرسل لك إشعاراً عند صدور كتالوجات جديدة أو انخفاض أسعار منتجاتك المفضلة في الإمارات.</string>
+    <string name="notifications_guest_desc">سجّل الدخول لمزامنة تنبيهات انخفاض الأسعار وانتهاء العروض وإشعارات التطبيق عبر أجهزتك.</string>
+    <string name="mark_all_read">تحديد الكل كمقروء</string>
+    <string name="enable_push_permission">تفعيل إذن الإشعارات</string>
+    <string name="push_permission_desc">اسمح بإشعارات النظام لاستلام تنبيهات انخفاض الأسعار والعروض الجديدة فوراً.</string>
+    <string name="push_permission_granted">إشعارات النظام مفعّلة على هذا الجهاز.</string>
+    <string name="notif_new_flyers">الكتالوجات الجديدة</string>
+    <string name="notif_new_flyers_desc">تنبيهات عند نشر المتاجر الإماراتية لكتالوجات عروض جديدة</string>
+    <string name="notif_price_drops">انخفاض الأسعار</string>
+    <string name="notif_price_drops_desc">تنبيهات عند انخفاض أسعار المنتجات المتابعة أو أصناف قوائمك</string>
+    <string name="notif_deal_expiry">انتهاء العروض</string>
+    <string name="notif_deal_expiry_desc">تذكير قبل انتهاء صلاحية العروض المحفوظة</string>
+    <string name="notif_upcoming_promos">الحملات الترويجية القادمة</string>
+    <string name="notif_upcoming_promos_desc">تنبيهات التخفيضات الموسمية وعروض الأعياد والمناسبات</string>
+    <string name="notif_coupon_expiry">انتهاء الكوبونات</string>
+    <string name="notif_coupon_expiry_desc">تذكير قبل انتهاء صلاحية أكواد الخصم المحفوظة</string>
+    <string name="notif_consent_title">تفضيلات التنبيهات والاشتراكات</string>
+    <string name="notif_consent_desc">تُحفظ تفضيلاتك في حسابك وتُزامن مع قنوات الإشعارات. يمكنك إيقاف أي فئة أو إلغاء جميع التنبيهات في أي وقت.</string>
+    <string name="notif_unsubscribe_all">إلغاء الاشتراك من جميع الفئات</string>
+    <string name="location_title">اختر الإمارة</string>
+    <string name="active_emirate">الإمارة النشطة</string>
+    <string name="choose_emirate">اختر إمارة</string>
+    <string name="detect_gps">تحديد موقعي عبر GPS</string>
+    <string name="detecting_gps">جارٍ تحديد أقرب إمارة…</string>
+    <string name="location_permission_denied">تم رفض إذن الموقع. يرجى اختيار الإمارة يدوياً.</string>
+    <string name="location_guidance">يتم تحديث الكتالوجات وفروع المتاجر والأسعار تلقائياً حسب الإمارة المختارة.</string>
+    <string name="selected_label">محدد</string>
 
     <!-- General -->
     <string name="save">حفظ</string>
     <string name="cancel">إلغاء</string>
     <string name="delete">حذف</string>
     <string name="done">تم</string>
-    <string name="copied">تم النسخ إلى الحافظة</string>
+    <string name="close">إغلاق</string>
 </resources>

@@ -45,5 +45,6 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector,
         fun createRoute(retailerId: String) = "retailer/$retailerId"
     }
     object NotificationSettings : Screen("notification_settings", "Notification Settings", Icons.Outlined.Settings, Icons.Filled.Settings)
-    object LoyaltyCards : Screen("loyalty_cards", "Loyalty Cards", Icons.Outlined.Payment, Icons.Filled.Payment)
+    object LoyaltyCards : Screen("loyalty_cards", "Wallet", Icons.Outlined.Payment, Icons.Filled.Payment)
+    object Clearance : Screen("clearance", "Clearance", Icons.Outlined.LocalOffer, Icons.Filled.LocalOffer)
 }

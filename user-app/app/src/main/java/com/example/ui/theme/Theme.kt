@@ -1,5 +1,6 @@
 package com.example.ui.theme
 
+import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -7,61 +8,70 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.core.view.WindowCompat
 
 val LocalThemeManager = staticCompositionLocalOf<com.example.data.ThemeManager> {
     error("No ThemeManager provided")
 }
 
+val LocalAppPalette = staticCompositionLocalOf { LightAppPalette }
+
 private val DarkColorScheme =
   darkColorScheme(
-    primary = Emerald500,
+    primary = FigmaCrimsonStart,
     onPrimary = Color.White,
-    primaryContainer = Emerald700,
-    onPrimaryContainer = Color.White,
+    primaryContainer = Color(0xFF4C0519),
+    onPrimaryContainer = Color(0xFFFFD6E0),
     secondary = Slate200,
     onSecondary = Slate900,
-    secondaryContainer = Slate800,
-    onSecondaryContainer = Slate100,
-    background = Slate900,
-    onBackground = Slate50,
-    surface = Slate800,
-    onSurface = Slate50,
-    surfaceVariant = Slate700,
-    onSurfaceVariant = Slate300,
-    outline = Slate600,
-    outlineVariant = Slate700,
-    error = Red600,
+    secondaryContainer = Color(0xFF252739),
+    onSecondaryContainer = Color(0xFFF4F5FA),
+    tertiary = QuickActionCompareIcon,
+    onTertiary = Color.White,
+    background = Color(0xFF0F101A),
+    onBackground = Color(0xFFF4F5FA),
+    surface = Color(0xFF1A1C2B),
+    onSurface = Color(0xFFF4F5FA),
+    surfaceVariant = Color(0xFF252739),
+    onSurfaceVariant = Color(0xFFC2C5D6),
+    outline = Color(0xFF3B3E54),
+    outlineVariant = Color(0xFF2D3045),
+    error = FigmaCrimsonStart,
     errorContainer = Color(0xFF4C0519),
     onErrorContainer = Color(0xFFFFD1D8)
   )
 
 private val LightColorScheme =
   lightColorScheme(
-    primary = Emerald600,
+    primary = FigmaCrimsonLink,
     onPrimary = Color.White,
-    primaryContainer = Emerald50,
-    onPrimaryContainer = Emerald700,
-    secondary = Slate800,
+    primaryContainer = MockupPinkBg,
+    onPrimaryContainer = FigmaCrimsonText,
+    secondary = FigmaTextPrimary,
     onSecondary = Color.White,
     secondaryContainer = Slate100,
-    onSecondaryContainer = Slate900,
-    tertiary = Purple40,
+    onSecondaryContainer = FigmaTextPrimary,
+    tertiary = QuickActionCompareIcon,
     onTertiary = Color.White,
-    background = BackgroundLight,
-    onBackground = Slate900,
+    background = FigmaBg,
+    onBackground = FigmaTextPrimary,
     surface = Color.White,
-    onSurface = Slate900,
-    surfaceVariant = Slate50,
-    onSurfaceVariant = Slate600,
+    onSurface = FigmaTextPrimary,
+    surfaceVariant = FigmaSurfaceGradMid,
+    onSurfaceVariant = FigmaTextSecondary,
     outline = Slate200,
     outlineVariant = Slate100,
-    error = Red600,
+    error = FigmaCrimsonEnd,
     errorContainer = Red50,
-    onErrorContainer = Red600
+    onErrorContainer = FigmaCrimsonLink
   )
 
 @Composable
@@ -82,5 +92,26 @@ fun MyApplicationTheme(
       else -> LightColorScheme
     }
 
-  MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
+  val view = LocalView.current
+  if (!view.isInEditMode) {
+    SideEffect {
+      val window = (view.context as? Activity)?.window
+      if (window != null) {
+        val barColor = if (darkTheme) Slate900 else FigmaBg
+        @Suppress("DEPRECATION")
+        window.statusBarColor = barColor.toArgb()
+        @Suppress("DEPRECATION")
+        window.navigationBarColor = barColor.toArgb()
+        WindowCompat.getInsetsController(window, view).apply {
+          isAppearanceLightStatusBars = !darkTheme
+          isAppearanceLightNavigationBars = !darkTheme
+        }
+      }
+    }
+  }
+
+  val palette = if (darkTheme) DarkAppPalette else LightAppPalette
+  CompositionLocalProvider(LocalAppPalette provides palette) {
+    MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
+  }
 }

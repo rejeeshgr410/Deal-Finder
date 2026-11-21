@@ -100,7 +100,7 @@ class FirestoreDealFinderDao(private val db: FirebaseFirestore, private val sess
 
     // Admin Operations
     override suspend fun updateUser(user: UserEntity) {
-        try { db.collection("users").document(user.id).set(user, SetOptions.merge()).await() } catch (e: Exception) {}
+        db.collection("users").document(user.id).set(user, SetOptions.merge()).await()
     }
 
     override fun getCoupons(): Flow<List<CouponEntity>> {
@@ -171,11 +171,21 @@ class FirestoreDealFinderDao(private val db: FirebaseFirestore, private val sess
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     override fun getNotifications(): Flow<List<NotificationEntity>> {
         return sessionManager.currentUserId.flatMapLatest { userId ->
-            if (userId == null) kotlinx.coroutines.flow.emptyFlow()
+            if (userId == null) kotlinx.coroutines.flow.flowOf(emptyList())
             else db.collection("users").document(userId).collection("alerts")
                 .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
                 .limit(100).asFlow()
         }
+    }
+
+    override suspend fun markNotificationRead(notificationId: String) {
+        val userId = sessionManager.getUserId() ?: return
+        try {
+            db.collection("users").document(userId).collection("alerts")
+                .document(notificationId)
+                .set(mapOf("isRead" to true), SetOptions.merge())
+                .await()
+        } catch (_: Exception) {}
     }
 
     override suspend fun insertSearchHistory(history: SearchHistoryEntity) {

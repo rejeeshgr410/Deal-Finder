@@ -1,30 +1,170 @@
 <resources>
     <string name="app_name">Deal Finder UAE</string>
+    <string name="splash_tagline">Discover. Compare. Save.</string>
 
     <!-- Navigation -->
     <string name="nav_home">Home</string>
     <string name="nav_search">Search</string>
+    <string name="nav_wallet">Wallet</string>
+    <string name="nav_clearance">Clearance</string>
     <string name="nav_lists">Lists</string>
     <string name="nav_deals">Deals</string>
+    <string name="nav_coupons">Coupons</string>
     <string name="nav_account">Account</string>
     <string name="nav_loyalty">Loyalty Cards</string>
 
+    <!-- Emirates -->
+    <string name="emirate_dubai">Dubai</string>
+    <string name="emirate_abu_dhabi">Abu Dhabi</string>
+    <string name="emirate_sharjah">Sharjah</string>
+    <string name="emirate_ajman">Ajman</string>
+    <string name="emirate_rak">Ras Al Khaimah</string>
+    <string name="emirate_fujairah">Fujairah</string>
+    <string name="emirate_uaq">Umm Al Quwain</string>
+
     <!-- Home Screen -->
+    <string name="hi_user">Hi, %1$s</string>
+    <string name="hi_guest">Welcome back</string>
+    <string name="home_subtitle">Find the best deals around you</string>
+    <string name="search_placeholder">Search products, brands or stores</string>
+    <string name="action_nearby_deals">Nearby\nDeals</string>
+    <string name="action_all_flyers">All Flyers</string>
+    <string name="action_price_compare">Price\nCompare</string>
+    <string name="action_smart_list">Smart List</string>
+    <string name="action_coupons">Coupons</string>
+    <string name="nearby_flyers">Nearby Flyers</string>
+    <string name="trending_products">Trending products</string>
+    <string name="within_10km">Within 10 km</string>
     <string name="featured_flyers">Featured UAE Flyers</string>
-    <string name="view_all">View All</string>
-    <string name="categories">Categories</string>
-    <string name="nearby_stores">Nearby Stores</string>
-    <string name="trending_deals">Trending Deals</string>
-    <string name="save_up_to">Save up to</string>
-    <string name="search_placeholder">Search groceries, electronics, flyers…</string>
+    <string name="view_all">View all</string>
+    <string name="top_deals_today">Top Deals Today</string>
+    <string name="smart_savings_title">Smart Savings</string>
+    <string name="smart_savings_desc">Compare prices, build your list\nand save more every day.</string>
+    <string name="create_smart_list">Create Smart List</string>
+    <string name="open_basket_optimizer">Optimize My Basket</string>
+    <string name="open_loyalty_wallet">Scan Loyalty Cards</string>
+    <string name="upcoming_promotions">Upcoming Promotions</string>
+    <string name="days_left">%1$d DAYS LEFT</string>
+    <string name="day_left">%1$d DAY LEFT</string>
+    <string name="valid_till">Valid till %1$s</string>
+    <string name="offline_cached_title">Offline Mode — Cached Data</string>
+    <string name="stale_cached_title">Cached Data — May Be Outdated</string>
+    <string name="sync_error_title">Catalog Sync Issue</string>
+    <string name="retry">Retry</string>
+    <string name="no_catalog_data">No live deals available right now.</string>
+
+    <!-- Search & Compare -->
+    <string name="search_results_title">Search Results</string>
+    <string name="results_count">%1$d Results</string>
+    <string name="tab_all">All</string>
+    <string name="tab_deals">Deals</string>
+    <string name="tab_flyers">Flyers</string>
+    <string name="tab_products">Products</string>
+    <string name="tab_stores">Stores</string>
+    <string name="best_deals">Best Deals</string>
+    <string name="best_deals_for">Best Deals for “%1$s”</string>
+    <string name="related_flyers">Related Flyers</string>
+    <string name="popular_stores">Popular Stores</string>
+    <string name="recent_searches">Recent Searches</string>
+    <string name="trending_searches">Trending in UAE</string>
+    <string name="filter_and_sort">Filter &amp; Sort</string>
+    <string name="sort_by">Sort By</string>
+    <string name="sort_relevance">Relevance</string>
+    <string name="sort_cheapest">Cheapest</string>
+    <string name="sort_nearest">Nearest</string>
+    <string name="sort_discount">Biggest Discount</string>
+    <string name="filter_category">Category</string>
+    <string name="filter_store">Store</string>
+    <string name="all_stores">All Stores</string>
+    <string name="max_price">Max Price</string>
+    <string name="min_discount">Min Discount</string>
+    <string name="any">Any</string>
+    <string name="apply_filters">Apply Filters</string>
+    <string name="reset_filters">Reset Filters</string>
+    <string name="get_notified">Get Notified</string>
+    <string name="get_notified_desc">Be the first to know about new deals and offers.</string>
+    <string name="enable_notifications">Manage Alerts</string>
+    <string name="added_to_list">Added %1$s to Smart List</string>
+    <string name="no_search_results">No matching items found</string>
 
     <!-- Loyalty Wallet -->
-    <string name="loyalty_wallet_title">Loyalty Cards</string>
-    <string name="loyalty_wallet_subtitle">Digital membership barcodes for checkout</string>
+    <string name="loyalty_wallet_title">My Wallet</string>
+    <string name="loyalty_wallet_subtitle">All your rewards, one place</string>
+    <string name="add_card">Add Card</string>
     <string name="add_loyalty_card">Add Loyalty Card</string>
-    <string name="tap_to_scan">Tap card to scan barcode</string>
+    <string name="cards_label">Cards</string>
+    <string name="points_label">Points</string>
+    <string name="ready_to_scan">Ready to\nscan</string>
+    <string name="my_loyalty_cards">My Loyalty Cards</string>
+    <string name="scan_at_checkout">Scan at checkout</string>
+    <string name="open_card_to_scan">Open a card to scan its barcode at checkout</string>
+    <string name="add_card_to_scan">Add a loyalty card above to show your checkout barcode</string>
+    <string name="explore_rewards">Explore Rewards</string>
+    <string name="explore_rewards_desc">Add cards from your favourite stores</string>
+    <string name="add_more">Add More</string>
     <string name="empty_wallet_title">No loyalty cards yet</string>
-    <string name="empty_wallet_desc">Add your Carrefour MyClub, Lulu Happiness, or Nesto INAM cards to scan at checkout without carrying plastic.</string>
+    <string name="empty_wallet_desc">Add your Carrefour SHARE, LuLu Happiness, or Nesto INAAM cards to scan at checkout.</string>
+
+    <!-- Coupons -->
+    <string name="coupons_title">Coupons</string>
+    <string name="coupons_subtitle">Save more with exclusive codes</string>
+    <string name="search_coupons_placeholder">Search brands or coupon codes</string>
+    <string name="featured_coupons">Featured Coupons</string>
+    <string name="saved_coupons">Saved</string>
+    <string name="more_store_coupons">More Partner &amp; Store Codes</string>
+    <string name="copy">COPY</string>
+    <string name="copied_upper">COPIED</string>
+    <string name="copied">Copied to clipboard</string>
+    <string name="coupon_banner_title">Your next deal is one tap away</string>
+    <string name="coupon_banner_subtitle">Copy a code and apply it at checkout.</string>
+    <string name="no_coupons_match">No coupons match your filter</string>
+
+    <!-- Clearance -->
+    <string name="clearance_title">Clearance</string>
+    <string name="clearance_subtitle">Near-expiry bundles • Up to 90% off</string>
+    <string name="clearance_banner_title">Near-Expiry Combo Clearance</string>
+    <string name="clearance_banner_subtitle">Save up to 90% off total retail price on curated store bundles.</string>
+    <string name="clearance_search_placeholder">Search clearance combos or Nestlé items</string>
+    <string name="expires_on">Expires %1$s</string>
+    <string name="you_save_amount">Save %1$s</string>
+    <string name="add_combo">Add Combo</string>
+    <string name="bundle_items_count">%1$d items in combo</string>
+    <string name="combo_offer_label">Combo Offer</string>
+    <string name="retail_total_label">Retail Total</string>
+    <string name="no_clearance_match">No clearance bundles match your filter</string>
+
+    <!-- Account -->
+    <string name="account_title">Account</string>
+    <string name="account_subtitle">Profile, rewards &amp; preferences</string>
+    <string name="guest_shopper">Guest Shopper</string>
+    <string name="guest_signin_hint">Sign in to sync lists, alerts &amp; cards</string>
+    <string name="sign_in">Sign In</string>
+    <string name="sign_in_or_create">Sign In or Create Account</string>
+    <string name="sign_out">Sign Out</string>
+    <string name="member_badge">Deal Finder Member</string>
+    <string name="guest_badge">Guest Mode</string>
+    <string name="quick_tools">Quick Tools</string>
+    <string name="my_activity">My Activity</string>
+    <string name="saved_followed_stores">Saved &amp; Followed Stores</string>
+    <string name="no_followed_stores">No followed stores yet. Tap a heart on any retailer to track its latest flyers.</string>
+    <string name="preferences_support">Preferences &amp; Support</string>
+    <string name="notification_preferences">Notification Preferences</string>
+    <string name="notification_preferences_desc">Manage opt-in alerts &amp; unsubscribe</string>
+    <string name="emirate_region">Emirate &amp; Store Region</string>
+    <string name="emirate_region_desc">Flyers and nearby offers location</string>
+    <string name="language">Language</string>
+    <string name="language_desc">App language &amp; RTL layout</string>
+    <string name="english">English</string>
+    <string name="arabic">العربية</string>
+    <string name="appearance">Appearance</string>
+    <string name="appearance_desc">Light, Dark or System default</string>
+    <string name="demo_mode">Demo Data Mode</string>
+    <string name="demo_mode_desc">Show sample UAE products, flyers &amp; brands</string>
+    <string name="help_support">Help &amp; Support</string>
+    <string name="help_support_desc">FAQs, support &amp; app info</string>
+    <string name="delete_account_data">Delete Account Data</string>
+    <string name="delete_account_data_desc">Clear local data, revoke token &amp; sign out</string>
+    <string name="footer_tagline">Deal Finder UAE • All prices in %1$s</string>
 
     <!-- Basket Optimizer & Multi-Store Comparison -->
     <string name="basket_optimizer_title">Basket Price Optimizer</string>
@@ -39,27 +179,76 @@
     <string name="currency_aed">AED</string>
 
     <!-- Shopping List -->
+    <string name="smart_list_title">Smart Lists</string>
+    <string name="smart_list_subtitle">Build lists &amp; find the cheapest store</string>
     <string name="my_lists">My Lists</string>
     <string name="new_list">New List</string>
     <string name="share_list">Share List</string>
     <string name="budget_limit">Monthly Budget Limit</string>
     <string name="empty_list">Your shopping list is empty</string>
+    <string name="add_item_placeholder">Add item (e.g. Milk, Rice, Bananas)</string>
+    <string name="add_btn">Add</string>
 
-    <!-- Settings & Profile -->
-    <string name="settings">Settings</string>
-    <string name="language">Language / اللغة</string>
-    <string name="english">English</string>
-    <string name="arabic">العربية</string>
-    <string name="theme">Theme</string>
-    <string name="notifications">Notifications</string>
+    <!-- Auth & Secondary -->
+    <string name="continue_as_guest">Continue as Guest</string>
+    <string name="remember_me">Remember me</string>
     <string name="location">Location</string>
-    <string name="backup_restore">Backup &amp; Restore</string>
-    <string name="logout">Log Out</string>
+    <string name="notifications">Notifications</string>
+    <string name="nearby_stores">Nearby Stores</string>
+    <string name="welcome_back">Welcome back</string>
+    <string name="create_account">Create an account</string>
+    <string name="reset_password">Reset password</string>
+    <string name="auth_login_subtitle">Log in to access your synced deals, lists, and loyalty wallet.</string>
+    <string name="auth_signup_subtitle">Join Deal Finder to track best prices and flyers across the UAE.</string>
+    <string name="auth_reset_subtitle">Enter your registered email to receive a password reset link.</string>
+    <string name="full_name">Full name</string>
+    <string name="email_address">Email address</string>
+    <string name="password">Password</string>
+    <string name="forgot_password">Forgot password?</string>
+    <string name="send_reset_link">Send reset link</string>
+    <string name="log_in">Log in</string>
+    <string name="create_account_btn">Create account</string>
+    <string name="or_divider">or</string>
+    <string name="continue_with_google">Continue with Google</string>
+    <string name="no_account">Don\'t have an account?</string>
+    <string name="have_account">Already have an account?</string>
+    <string name="sign_up">Sign up</string>
+    <string name="back_to_login">Back to log in</string>
+    <string name="password_reset_sent_msg">Password reset email sent to %1$s. Check your inbox and spam folder.</string>
+    <string name="notifications_title">Notifications</string>
+    <string name="no_notifications">No notifications yet</string>
+    <string name="notifications_empty_desc">We\'ll notify you when your favorite UAE hypermarkets publish new flyers or when prices drop.</string>
+    <string name="notifications_guest_desc">Sign in to sync price drop alerts, deal expiry reminders, and push notifications across devices.</string>
+    <string name="mark_all_read">Mark all read</string>
+    <string name="enable_push_permission">Enable Push Permission</string>
+    <string name="push_permission_desc">Allow Android push alerts so price drops and new flyer updates reach you immediately.</string>
+    <string name="push_permission_granted">Push notifications allowed on this device.</string>
+    <string name="notif_new_flyers">New Flyers</string>
+    <string name="notif_new_flyers_desc">Alerts when UAE stores publish new promotional catalogues</string>
+    <string name="notif_price_drops">Price Drops</string>
+    <string name="notif_price_drops_desc">Alerts when tracked products or list items drop in price</string>
+    <string name="notif_deal_expiry">Deal Expiry</string>
+    <string name="notif_deal_expiry_desc">Reminders before your saved deals expire</string>
+    <string name="notif_upcoming_promos">Upcoming Promotions</string>
+    <string name="notif_upcoming_promos_desc">Seasonal sales and festival discount announcements</string>
+    <string name="notif_coupon_expiry">Coupon Expiry</string>
+    <string name="notif_coupon_expiry_desc">Reminders before saved promo codes expire</string>
+    <string name="notif_consent_title">Alert Preferences &amp; Topic Subscriptions</string>
+    <string name="notif_consent_desc">Preferences are saved to your account and synced with push topics. You can toggle individual categories or opt out of all alerts anytime.</string>
+    <string name="notif_unsubscribe_all">Unsubscribe from All Categories</string>
+    <string name="location_title">Select Emirate</string>
+    <string name="active_emirate">Active Emirate</string>
+    <string name="choose_emirate">Choose an Emirate</string>
+    <string name="detect_gps">Detect my location via GPS</string>
+    <string name="detecting_gps">Detecting nearest UAE Emirate…</string>
+    <string name="location_permission_denied">Location permission denied. Please choose your Emirate manually.</string>
+    <string name="location_guidance">Flyers, store branches, and prices update dynamically based on your selected Emirate.</string>
+    <string name="selected_label">Selected</string>
 
     <!-- General -->
     <string name="save">Save</string>
     <string name="cancel">Cancel</string>
     <string name="delete">Delete</string>
     <string name="done">Done</string>
-    <string name="copied">Copied to clipboard</string>
+    <string name="close">Close</string>
 </resources>

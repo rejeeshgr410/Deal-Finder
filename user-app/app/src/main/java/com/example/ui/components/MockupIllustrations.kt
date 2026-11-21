@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -17,8 +18,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -166,6 +171,59 @@ fun BellsIllustration(
                     fontSize = 10.sp
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun HomeTopBackgroundWash(modifier: Modifier = Modifier) {
+    val isDark = com.example.ui.theme.LocalAppPalette.current.isDark
+    val radialOuter = if (isDark) Color(0x389D174D) else Color(0xAAF8E4E9)
+    val radialInner = if (isDark) Color(0x40BE185D) else Color(0x90F9CBD3)
+    val ribbonStop0 = if (isDark) Color(0x30881337) else Color(0x50FFDFE6)
+    val ribbonStop1 = if (isDark) Color(0x28E11D48) else Color(0x42F9849A)
+    val ribbonStop2 = if (isDark) Color(0x18F43F5E) else Color(0x30F9B6C3)
+    val ribbonStop3 = if (isDark) Color(0x0A881337) else Color(0x14F9DAE0)
+
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(radialOuter, Color.Transparent),
+                center = Offset(w * 0.68f, h * 0.16f),
+                radius = w * 0.85f
+            ),
+            radius = w * 0.85f,
+            center = Offset(w * 0.68f, h * 0.16f)
+        )
+
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(radialInner, Color.Transparent),
+                center = Offset(w * 0.82f, h * 0.08f),
+                radius = w * 0.65f
+            ),
+            radius = w * 0.65f,
+            center = Offset(w * 0.82f, h * 0.08f)
+        )
+
+        rotate(degrees = -14f, pivot = Offset(w * 0.78f, 0f)) {
+            drawRoundRect(
+                brush = Brush.verticalGradient(
+                    0.0f to ribbonStop0,
+                    0.45f to ribbonStop1,
+                    0.68f to ribbonStop2,
+                    0.88f to ribbonStop3,
+                    1.0f to Color.Transparent,
+                    startY = -h * 0.38f,
+                    endY = h * 0.38f
+                ),
+                topLeft = Offset(w * 0.38f, -h * 0.38f),
+                size = Size(w * 0.85f, h * 0.76f),
+                cornerRadius = CornerRadius(w * 0.32f, w * 0.32f)
+            )
         }
     }
 }

@@ -111,6 +111,10 @@ class DealFinderRepository(private val dao: DealFinderDao, private val cachedFly
     // Data access operations
     val allCoupons: Flow<List<CouponEntity>> = dao.getCoupons()
     val promotions: Flow<List<PromotionEntity>> = dao.getPromotions()
+    val notifications: Flow<List<NotificationEntity>> = dao.getNotifications()
+
+    suspend fun markNotificationRead(id: String) = dao.markNotificationRead(id)
+    suspend fun clearCachedFlyers() { cachedFlyerDao?.clearFlyers() }
 
     suspend fun updateUser(user: UserEntity) = dao.updateUser(user)
 

@@ -1,9 +1,16 @@
 package com.example.data
 
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -12,68 +19,116 @@ class ShoppingListRepository(
     private val db: FirebaseFirestore,
     private val sessionManager: SessionManager
 ) {
+    private val repoScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     val allItems: Flow<List<ShoppingListItem>> = dao.getAllItems()
 
-    private var listenerRegistrations = mutableListOf<com.google.firebase.firestore.ListenerRegistration>()
+    private val defaultLists = listOf("My Lists", "Grocery", "Ramadan", "Party")
+    private val _listNames = MutableStateFlow(defaultLists)
+    val listNames: StateFlow<List<String>> = _listNames.asStateFlow()
+
+    private val _syncError = MutableStateFlow<String?>(null)
+    val syncError: StateFlow<String?> = _syncError.asStateFlow()
+
+    private var listenerRegistrations = mutableListOf<ListenerRegistration>()
 
     init {
-        CoroutineScope(Dispatchers.IO).launch {
-            sessionManager.currentUserId.collect { userId ->
+        repoScope.launch {
+            combine(sessionManager.currentUserId, _listNames) { userId, names ->
+                userId to names
+            }.collect { (userId, names) ->
                 listenerRegistrations.forEach { it.remove() }
                 listenerRegistrations.clear()
-                
+
                 if (userId != null) {
-                    // Listen to all lists. Because lists can be dynamic, 
-                    // we'll listen to a collection group or just the expected list ids? 
-                    // To do `users/{userId}/shoppingLists/{listId}/items`, we'd need to know listIds. 
-                    // Or we can just store the items uniformly in `users/{userId}/shoppingListItems`? 
-                    // Wait, the prompt specifically requires `users/{userId}/shoppingLists/{listId}/items`. 
-                    // So we must fetch the lists. Let's just track a default list for now if the UI doesn't allow creating them. 
-                    // Actually, let's keep it simple: we can listen to the specific listId used by the app, which is "My Lists".
-                    val listId = "My Lists" // In future this can be dynamic
-                    val reg = db.collection("users").document(userId)
-                        .collection("shoppingLists").document(listId)
-                        .collection("items")
-                        .addSnapshotListener { snapshot, _ ->
-                            if (snapshot == null) return@addSnapshotListener
-                            CoroutineScope(Dispatchers.IO).launch {
-                                // For simplicity we could just insert them, causing Room to REPLACE.
-                                // But what if an item is deleted from another device? We should sync deletions.
-                                // So we delete items from this listId and re-insert.
-                                dao.deleteList(listId)
-                                snapshot.documents.forEach { doc ->
-                                    doc.toObject(ShoppingListItem::class.java)?.let { item ->
-                                        dao.insertItem(item)
+                    // Discover any additional server-side lists
+                    try {
+                        val serverLists = db.collection("users").document(userId)
+                            .collection("shoppingLists").get().await()
+                        val discovered = serverLists.documents.mapNotNull { doc ->
+                            doc.getString("name") ?: doc.id
+                        }.filter { it.isNotBlank() }
+                        val merged = (names + discovered).distinct()
+                        if (merged != names) {
+                            _listNames.value = merged
+                            return@collect
+                        }
+                    } catch (_: Exception) {}
+
+                    names.forEach { listId ->
+                        val reg = db.collection("users").document(userId)
+                            .collection("shoppingLists").document(listId)
+                            .collection("items")
+                            .addSnapshotListener { snapshot, err ->
+                                if (err != null) {
+                                    _syncError.value = err.localizedMessage
+                                    return@addSnapshotListener
+                                }
+                                if (snapshot == null) return@addSnapshotListener
+                                repoScope.launch {
+                                    dao.deleteList(listId)
+                                    snapshot.documents.forEach { doc ->
+                                        doc.toObject(ShoppingListItem::class.java)?.let { item ->
+                                            dao.insertItem(item.copy(listId = listId))
+                                        }
                                     }
                                 }
                             }
-                        }
-                    listenerRegistrations.add(reg)
+                        listenerRegistrations.add(reg)
+                    }
                 } else {
-                    dao.clear()
+                    if (!DemoRegistry.isDemoEnabled.value) {
+                        dao.clear()
+                    }
                 }
             }
         }
     }
 
+    fun registerListName(name: String) {
+        val clean = name.trim()
+        if (clean.isBlank()) return
+        if (clean !in _listNames.value) {
+            _listNames.value = _listNames.value + clean
+        }
+    }
+
+    fun unregisterListName(name: String) {
+        _listNames.value = _listNames.value.filterNot { it == name }
+    }
+
     suspend fun insert(item: ShoppingListItem) {
-        dao.insertItem(item) // local cache
+        registerListName(item.listId)
+        dao.insertItem(item)
         val userId = sessionManager.getUserId() ?: return
-        db.collection("users").document(userId)
-            .collection("shoppingLists").document(item.listId)
-            .collection("items").document(item.id).set(item)
+        try {
+            val listDoc = db.collection("users").document(userId)
+                .collection("shoppingLists").document(item.listId)
+            listDoc.set(mapOf("name" to item.listId, "updatedAt" to System.currentTimeMillis()), SetOptions.merge()).await()
+            listDoc.collection("items").document(item.id).set(item).await()
+            _syncError.value = null
+        } catch (e: Exception) {
+            _syncError.value = e.localizedMessage
+        }
     }
-    
+
     suspend fun delete(id: String) {
-        dao.deleteItem(id) // local cache
+        val existing = dao.getItemById(id)
+        val actualListId = existing?.listId ?: "My Lists"
+        dao.deleteItem(id)
         val userId = sessionManager.getUserId() ?: return
-        val listId = "My Lists"
-        db.collection("users").document(userId)
-            .collection("shoppingLists").document(listId)
-            .collection("items").document(id).delete()
+        try {
+            db.collection("users").document(userId)
+                .collection("shoppingLists").document(actualListId)
+                .collection("items").document(id).delete().await()
+            _syncError.value = null
+        } catch (e: Exception) {
+            _syncError.value = e.localizedMessage
+        }
     }
-    
+
     suspend fun deleteList(listId: String) {
+        unregisterListName(listId)
         dao.deleteList(listId)
         val userId = sessionManager.getUserId() ?: return
         try {
@@ -81,11 +136,22 @@ class ShoppingListRepository(
                 .collection("shoppingLists").document(listId)
                 .collection("items").get().await()
             for (doc in docs.documents) {
-                doc.reference.delete()
+                doc.reference.delete().await()
             }
             db.collection("users").document(userId)
-                .collection("shoppingLists").document(listId).delete()
-        } catch (e: Exception) {}
+                .collection("shoppingLists").document(listId).delete().await()
+            _syncError.value = null
+        } catch (e: Exception) {
+            _syncError.value = e.localizedMessage
+        }
+    }
+
+    suspend fun clearAllLocal() {
+        dao.clear()
+        _listNames.value = defaultLists
+    }
+
+    fun clearSyncError() {
+        _syncError.value = null
     }
 }
-

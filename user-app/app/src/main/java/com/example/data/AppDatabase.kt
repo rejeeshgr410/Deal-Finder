@@ -20,6 +20,9 @@ interface ShoppingListDao {
     @Query("SELECT * FROM shopping_list")
     fun getAllItems(): Flow<List<ShoppingListItem>>
 
+    @Query("SELECT * FROM shopping_list WHERE id = :id LIMIT 1")
+    suspend fun getItemById(id: String): ShoppingListItem?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertItem(item: ShoppingListItem)
     
@@ -57,6 +60,9 @@ interface CachedFlyerDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFlyers(flyers: List<CachedFlyerEntity>)
+
+    @Query("DELETE FROM flyers")
+    suspend fun clearFlyers()
 }
 
 @Dao
@@ -72,6 +78,9 @@ interface LoyaltyCardDao {
 
     @Query("DELETE FROM loyalty_cards WHERE id = :id")
     suspend fun deleteCardById(id: String)
+
+    @Query("DELETE FROM loyalty_cards")
+    suspend fun clearAll()
 }
 
 @Database(entities = [ShoppingListItem::class, CachedFlyerEntity::class, LoyaltyCardEntity::class], version = 3, exportSchema = false)
@@ -135,6 +144,7 @@ interface DealFinderDao {
     fun getCoupons(): Flow<List<CouponEntity>>
 
     fun getNotifications(): Flow<List<NotificationEntity>>
+    suspend fun markNotificationRead(notificationId: String) {}
 
     suspend fun insertSearchHistory(history: SearchHistoryEntity)
     fun getRecentSearches(): Flow<List<SearchHistoryEntity>>
