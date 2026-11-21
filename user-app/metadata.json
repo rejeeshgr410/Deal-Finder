@@ -1,6 +1,6 @@
 {
   "name": "Deal Finder UAE",
-  "description": "A production-ready UAE shopping platform for flyer browsing, price comparison, smart lists, budget tools, and localized deals.",
+  "description": "A UAE offers and deals aggregator featuring near-expiry clearance bundles (up to 90% off), multi-store price comparison, smart shopping lists with basket optimization, loyalty card wallet, coupons, and localized flyers.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
